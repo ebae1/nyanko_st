@@ -22,11 +22,11 @@ df_orig = load_data()
 df_e_orig = load_data_e()
 
 # グラフと表の順序の基準となるリスト
-target_cols_cats = ['コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '範囲', '頻度F', 'DPS', '体力', 'KB']
-target_cols_enemy = ['体力','KB','速度','攻撃力','DPS','頻度F','攻発F','射程','お金']
+target_cols_cats = ['own','No.','ランク','キャラクター名','コスト','再生産F','速度','範囲','射程','発生F','攻撃力','頻度F','DPS','体力','KB','特性']
+target_cols_enemy = ['速度','射程','DPS','体力','KB','攻撃力','頻度F','攻発F','お金']
 
 # --- データクレンジング ---
-numeric_cols_cats = [col for col in target_cols_cats if col != '範囲']
+numeric_cols_cats = [col for col in target_cols_cats if col != '範囲' or col !='特性' or col !='ランク' or col !='キャラクター名']
 for col in numeric_cols_cats:
     if col in df_orig.columns:
         df_orig[col] = pd.to_numeric(df_orig[col], errors='coerce')
@@ -153,8 +153,9 @@ if page == "Cats":
     if not df.empty:
         df_current_max = df[numeric_cols_cats].max()
         df_current_min = df[numeric_cols_cats].min()
-        base_column_order = ['キャラクター名', 'ランク', 'Lv'] + target_cols_cats + ['特性']
-        other_columns = [col for col in df.columns.tolist() if col not in base_column_order]
+        # 表示する列を、あらかじめ定義した列に限定する
+        base_column_order = target_cols_cats
+        other_columns = [col for col in df.columns.tolist() if col not in base_column_order ]
         final_column_order = base_column_order + other_columns
         display_columns = [col for col in final_column_order if col in df.columns]
         df_display = df[display_columns]
