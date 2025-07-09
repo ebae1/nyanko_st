@@ -204,9 +204,9 @@ if page == "Cats":
         gb.configure_column('キャラクター名', minWidth=150)
         gb.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
         
-        col_width1 = ['ランク','範囲','KB','No.','own','速度']
+        cols_to_set_width1 = ['ランク','範囲','KB','No.','own','速度']
         # ループを使って、リスト内の各列に個別に設定を適用する
-        for col_name in cols_to_set_width:
+        for col_name in cols_to_set_width1:
             if col_name in df_dispay.columns:
                 gb.configure_colum(
                     col_name,
