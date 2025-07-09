@@ -211,7 +211,7 @@ if page == "Cats":
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             allow_unsafe_jscode=True,
             fit_columns_on_grid_load=True,
-            theme='balham'
+            
         )
         
         selected_rows = grid_response['selected_rows']
