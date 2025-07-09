@@ -3,6 +3,8 @@ import streamlit as st
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
+#requirements.txtに必要ライブラリを記入しておく
+
 # --- ページ設定 ---
 st.set_page_config(layout='wide')
 
