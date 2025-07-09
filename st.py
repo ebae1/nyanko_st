@@ -205,7 +205,14 @@ if page == "Cats":
         gb.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
         
         col_width1 = ['ランク','範囲','KB','No.','own','速度']
-        gb.configure_column(col_width1, initialWidth=100)
+        # ループを使って、リスト内の各列に個別に設定を適用する
+        for col_name in cols_to_set_width:
+            if col_name in df_dispay.columns:
+                gb.configure_colum(
+                    col_name,
+                    initialWidth=100
+                )
+       
         
         grid_options = gb.build()
 
