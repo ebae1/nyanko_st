@@ -121,7 +121,7 @@ if page == "Cats":
     if own: df = df[df['own'] > 0]
     if search: df = df[df['キャラクター名'].str.contains(search, na=False)]
     types_options = ['赤', '浮', '黒', 'メタル', '天使', 'エイリアン', 'ゾンビ', '古代種', '悪魔', '無属性']
-    types = st.multiselect('対象属性', types_options)
+    types = st.segmented_control('対象属性', types_options, selection_mode='multi')
     if types:
         mask_types = pd.Series(True, index=df.index)
         for t in types: mask_types &= (df[t].fillna(0) > 0)
