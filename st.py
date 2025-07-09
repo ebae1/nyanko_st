@@ -2,6 +2,8 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+import numpy as np
+from decimal import Decimal, InvalidOperation
 
 #requirements.txtに必要ライブラリを記入しておく
 
@@ -33,6 +35,12 @@ for col in numeric_cols_cats:
 for col in target_cols_enemy:
     if col in df_e_orig.columns:
         df_e_orig[col] = pd.to_numeric(df_e_orig[col], errors='coerce')
+        
+        
+# --- 抽出による列の作成 ---
+
+
+
 
 # --- スライダー処理関数 ---
 def add_slider(df, col):
