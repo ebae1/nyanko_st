@@ -208,7 +208,7 @@ if page == "Cats":
         # ループを使って、リスト内の各列に個別に設定を適用する
         for col_name in cols_to_set_width1:
             if col_name in df_display.columns:
-                gb.configure_colum(
+                gb.configure_column(
                     col_name,
                     initialWidth=100
                 )
