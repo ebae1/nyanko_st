@@ -203,7 +203,7 @@ if page == "Cats":
         # 最小幅を設定して見やすくする
         gb.configure_column('キャラクター名', minWidth=150)
         gb.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
-        gb.configure_column('ランク', minWidth=30, maxWidth=70)
+        gb.configure_column('ランク', initialWidth=70)
         grid_options = gb.build()
 
         grid_response = AgGrid(
