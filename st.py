@@ -80,17 +80,12 @@ def show_comparison_bar_chart(selected_data, current_max_data, current_min_data,
         tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', title='実際の値', format=','), alt.Tooltip('表示中の最大値:Q', format=','), alt.Tooltip('表示中の最小値:Q', format=',')]
     ).transform_calculate(正規化された値="100")
     
-    # ★★★ ここからが修正箇所 ★★★
     foreground = alt.Chart(df_chart).mark_bar(cornerRadius=3).encode(
         x='正規化された値:Q',
         y=alt.Y('項目:N', sort=sort_order, title=None),
-        # 条件に応じて色を変更する設定
         color=alt.condition(
-            # 条件: Vega-Liteの表現式文字列を使用
             "datum.項目 == '攻撃力' || datum.項目 == 'DPS'",
-            # 条件がTrueの場合の色 (赤色)
             alt.value('#d62728'),
-            # 条件がFalseの場合の色 (青色)
             alt.value('#1f77b4')
         ),
         tooltip=[
@@ -110,15 +105,12 @@ def show_comparison_bar_chart(selected_data, current_max_data, current_min_data,
     ).configure_legend(
         disable=True
     )
-    # ★★★ 修正箇所ここまで ★★★
 
     st.altair_chart(chart, use_container_width=True)
 
-# --- (以降のコードは変更なし) ---
 # --- タブ切り替え ---
-page = st.radio("tab", ["Cats", "Enemy"], horizontal=True)
-# (省略...)
-# (コードは前回の回答と同じなので、ここでは省略します)
+page = st.radio("tab", ["Cats", "Enemy"], horizontal=True, label_visibility="collapsed")
+
 # --- Catsタブ ---
 if page == "Cats":
     df = df_orig.copy()
@@ -157,6 +149,7 @@ if page == "Cats":
         if col_slider in df.columns: df = add_slider(df, col_slider)
 
     # 表示処理...
+    st.header("Cats DB")
     if not df.empty:
         df_current_max = df[numeric_cols_cats].max()
         df_current_min = df[numeric_cols_cats].min()
@@ -170,7 +163,15 @@ if page == "Cats":
         gb.configure_default_column(suppressMenu=True, filter=False)
         gb.configure_selection(selection_mode="single")
         grid_options = gb.build()
-        grid_response = AgGrid(df_display, gridOptions=grid_options, update_mode=GridUpdateMode.SELECTION_CHANGED, allow_unsafe_jscode=True)
+
+        # ★★★ 修正箇所1 ★★★
+        grid_response = AgGrid(
+            df_display,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            allow_unsafe_jscode=True,
+            fit_columns_on_grid_load=True  # カラム幅を自動調整するオプションを追加
+        )
         
         selected_rows = grid_response['selected_rows']
         if selected_rows is not None and len(selected_rows) > 0:
@@ -189,7 +190,8 @@ elif page == "Enemy":
     st.sidebar.title("Enemy フィルター")
     search = st.sidebar.text_input("敵キャラクター名")
     if search: df_e = df_e[df_e['キャラクター名'].str.contains(search, na=False)]
-
+    
+    st.header("Enemy DB")
     if not df_e.empty:
         df_e_current_max = df_e[target_cols_enemy].max()
         df_e_current_min = df_e[target_cols_enemy].min()
@@ -198,7 +200,15 @@ elif page == "Enemy":
         gb.configure_default_column(suppressMenu=True, filter=False)
         gb.configure_selection(selection_mode="single")
         grid_options = gb.build()
-        grid_response = AgGrid(df_e, gridOptions=grid_options, update_mode=GridUpdateMode.SELECTION_CHANGED, allow_unsafe_jscode=True)
+        
+        # ★★★ 修正箇所2 ★★★
+        grid_response = AgGrid(
+            df_e,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.SELECTION_CHANGED,
+            allow_unsafe_jscode=True,
+            fit_columns_on_grid_load=True  # カラム幅を自動調整するオプションを追加
+        )
         
         selected_rows = grid_response['selected_rows']
         if selected_rows is not None and len(selected_rows) > 0:
