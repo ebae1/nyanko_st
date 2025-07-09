@@ -198,7 +198,7 @@ if page == "Cats":
         df_display = df[display_columns]
         
         gb = GridOptionsBuilder.from_dataframe(df_display)
-        gb.configure_default_column(suppressMenu=True, filter=False)
+        gb.configure_default_column(suppressMenu=True)
         gb.configure_selection(selection_mode="single")
         # 最小幅を設定して見やすくする
         gb.configure_column('キャラクター名', minWidth=150)
