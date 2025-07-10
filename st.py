@@ -181,7 +181,7 @@ if page == "Cats":
                 mask &= (df[e] == True) # 生成したTrue/Falseの列でフィルタ
         df = df[mask]
 
-    ability_options = ['波動', '小波動', '烈波', '小烈波', '爆波', 'クリティカル', '渾身の一撃', 'ゾンビキラー', '生き残る', '波動ストッパー']
+    ability_options = ['波動', '小波動', '烈波', '小烈波', '爆波', 'クリティカル', '渾身の一撃', 'ゾンビキラー',  '悪魔シールド貫通', 'バリアブレイク','生き残る', '波動ストッパー']
     abilities = st.sidebar.multiselect('特殊能力', ability_options)
     if abilities:
         mask = pd.Series(True, index=df.index)
