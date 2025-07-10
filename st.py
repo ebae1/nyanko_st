@@ -150,7 +150,7 @@ if page == "Cats":
 
     types_options = ['赤', '浮', '黒', 'メタル', '天使', 'エイリアン', 'ゾンビ', '古代種', '悪魔', '無属性']
     # st.segmented_control はそのまま使用
-    types = st.sidebar.segmented_control('対象属性', types_options, selection_mode='multi')
+    types = st.segmented_control('対象属性', types_options, selection_mode='multi')
     if types:
         mask = pd.Series(True, index=df.index)
         for t in types:
