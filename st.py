@@ -76,7 +76,7 @@ def load_processed_cats_data():
     final_df = df.join(grouped_results)
     
     # 結合後に生成されなかった列をFalseで埋める
-    all_generated_cols = list(boolean_effects.keys()) + flag_effects + colors)
+    all_generated_cols = list(boolean_effects.keys()) + flag_effects + colors
     for col in all_generated_cols:
         if col not in final_df.columns:
             final_df[col] = False
