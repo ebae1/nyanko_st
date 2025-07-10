@@ -39,6 +39,13 @@ def load_processed_cats_data():
     results_df = pd.DataFrame(index=s.index)
 
     # --- 特性解析 ---
+    colors = ['赤','浮','黒','メタル','天使','エイリアン','ゾンビ','古代種','悪魔','白']
+    for color in colors:
+        pattern = f'対(?!.*全敵.*{color}.*除く).*{color}.*'
+        results_df[color] = s.str.contains(pattern, na=False)
+
+
+    
     # Boolean(True/False)で判定する特性
     boolean_effects = {
         'めっぽう強い': 'めっぽう強い', '打たれ強い': '打たれ強い', '超打たれ強い': '超打たれ強い', 
@@ -69,7 +76,7 @@ def load_processed_cats_data():
     final_df = df.join(grouped_results)
     
     # 結合後に生成されなかった列をFalseで埋める
-    all_generated_cols = list(boolean_effects.keys()) + flag_effects
+    all_generated_cols = list(boolean_effects.keys()) + flag_effects + colors)
     for col in all_generated_cols:
         if col not in final_df.columns:
             final_df[col] = False
@@ -148,14 +155,14 @@ if page == "Cats":
     if own: df = df[df['own'] > 0]
     if search: df = df[df['キャラクター名'].str.contains(search, na=False)]
 
-    types_options = ['赤', '浮', '黒', 'メタル', '天使', 'エイリアン', 'ゾンビ', '古代種', '悪魔', '無属性']
+    types_options = ['赤', '浮', '黒', 'メタル', '天使', 'エイリアン', 'ゾンビ', '古代種', '悪魔', '白']
     # st.segmented_control はそのまま使用
     types = st.segmented_control('対象属性', types_options, selection_mode='multi')
     if types:
         mask = pd.Series(True, index=df.index)
         for t in types:
             if t in df.columns:
-                mask &= (df[t].fillna(0) > 0)
+                mask &= df[t]
         df = df[mask]
         
     rank = st.sidebar.multiselect('ランク', ['基本', 'EX', 'レア', '激レア', '超激レア', '伝説レア'])
