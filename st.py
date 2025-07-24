@@ -2,269 +2,379 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-import numpy as np
-from decimal import Decimal, InvalidOperation
+from typing import List, Optional, Union, Dict
 
+# --- 定数 ---
 CATS_FILE = './catsdb.xlsx'
 ENEMY_FILE = './nyanko_enemy_db.xlsx'
 
-# --- ページ設定 ---
+NUMERIC_COLS_CATS: List[str] = [
+    'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
+    '攻撃力', '頻度F', 'DPS', '体力', 'KB'
+]
+
+NUMERIC_COLS_ENEMY: List[str] = [
+    '体力', 'KB', '速度', '攻撃力', 'DPS', '頻度F', '攻発F', '射程', 'お金'
+]
+
+DISPLAY_COLS_CATS: List[str] = [
+    'own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F', '速度',
+    '範囲', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB', '特性'
+]
+
+COLOR_TRAITS: List[str] = [
+    '赤', '浮', '黒', 'メタル', '天使', 'エイリアン',
+    'ゾンビ', '古代種', '悪魔', '白'
+]
+
+BOOLEAN_TRAITS: Dict[str, str] = {
+    'めっぽう強い': 'めっぽう強い',
+    '打たれ強い': '打たれ強い',
+    '超打たれ強い': '超打たれ強い',
+    '超ダメージ': '超ダメージ',
+    '極ダメージ': '極ダメージ',
+    'ターゲット限定': 'のみに攻撃',
+    '魂攻撃': '魂攻撃',
+    'メタルキラー': 'メタルキラー',
+    '被ダメージ1': r'被ダメージ\s*1',
+    '波動ストッパー': '波動ストッパー',
+    '烈波カウンター': '烈波カウンター',
+    '1回攻撃': '1回攻撃',
+    'ゾンビキラー': 'ゾンビキラー',
+    'バリアブレイク': 'バリアブレイク',
+    '悪魔シールド貫通': '悪魔シールド貫通',
+}
+
+FLAG_TRAITS: List[str] = [
+    '攻撃力低下', '動きを止める', '動きを遅くする', 'ふっとばす',
+    '呪い', '攻撃無効', '渾身の一撃', '攻撃力上昇', '生き残る',
+    'クリティカル', '波動', '小波動', '烈波', '小烈波', '爆波',
+]
+
 st.set_page_config(layout='wide')
 
-# --- 1. 特性解析とデータ前処理を行う関数 ---
-# この関数全体の結果がキャッシュされることで、アプリのパフォーマンスが大幅に向上します。
+
 @st.cache_data
-def load_processed_cats_data():
+def load_and_process_cats_data() -> pd.DataFrame:
+    """ExcelファイルからCatsデータを読み込み、特性を解析・付加して返す。
+
+    Returns:
+        pd.DataFrame: 特性解析後かつ数値変換済みのCatsデータフレーム
     """
-    Excelからネコデータを読み込み、特性解析を行い、
-    数値変換まで済ませたDataFrameを返す関数。
-    """
-    df = pd.read_excel('./catsdb.xlsx', index_col=0)
-    
-    # --- データクレンジング（数値変換）---
-    # ★修正点1: 数値に変換する列を明示的に指定し、エラーを防ぐ
-    numeric_cols_to_convert = [
-        'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB'
-    ]
-    for col in numeric_cols_to_convert:
+    df = pd.read_excel(CATS_FILE, index_col=0)
+
+    # 数値列を明示的に数値変換
+    for col in NUMERIC_COLS_CATS:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # --- 特性解析ロジック ---
-    src_col = '特性'
-    # 特性列がない、またはすべて空の場合は、解析せずにスキップ
-    if src_col not in df.columns or df[src_col].isnull().all():
+    if '特性' not in df.columns or df['特性'].isnull().all():
         return df
 
-    # 元のdfの列を保持するため、解析結果は別の一時的なDataFrameに格納
-    df_exploded = df.assign(line=df[src_col].str.split('\n')).explode('line')
-    s = df_exploded['line'].astype(str).str.strip()
-    results_df = pd.DataFrame(index=s.index)
+    exploded_df = df.assign(line=df['特性'].str.split('\n')).explode('line')
+    traits_lines = exploded_df['line'].astype(str).str.strip()
+    traits_df = pd.DataFrame(index=traits_lines.index)
 
-    # --- 特性解析 ---
-    colors = ['赤','浮','黒','メタル','天使','エイリアン','ゾンビ','古代種','悪魔','白']
-    for color in colors:
-        pattern = f'対(?!.*全敵.*{color}.*除く).*{color}.*'
-        results_df[color] = s.str.contains(pattern, na=False)
+    # 色特性判定
+    for color in COLOR_TRAITS:
+        pattern = rf'対(?!.*全敵.*{color}.*除く).*{color}.*'
+        traits_df[color] = traits_lines.str.contains(pattern, na=False)
 
+    # Boolean特性判定
+    for trait_name, regex_pattern in BOOLEAN_TRAITS.items():
+        traits_df[trait_name] = traits_lines.str.contains(regex_pattern, na=False, regex=True)
 
-    
-    # Boolean(True/False)で判定する特性
-    boolean_effects = {
-        'めっぽう強い': 'めっぽう強い', '打たれ強い': '打たれ強い', '超打たれ強い': '超打たれ強い', 
-        '超ダメージ': '超ダメージ', '極ダメージ': '極ダメージ', 'ターゲット限定': 'のみに攻撃', 
-        '魂攻撃': '魂攻撃', 'メタルキラー': 'メタルキラー', '被ダメージ1': r'被ダメージ\s*1', 
-        '波動ストッパー': '波動ストッパー', '烈波カウンター': '烈波カウンター', '1回攻撃': '1回攻撃',
-        'ゾンビキラー': 'ゾンビキラー', 'バリアブレイク': 'バリアブレイク', '悪魔シールド貫通': '悪魔シールド貫通'
-        # ... 他のBoolean特性もここに追加 ...
-    }
-    for col_name, search_pattern in boolean_effects.items():
-        results_df[col_name] = s.str.contains(search_pattern, na=False, regex=True)
+    # フラグ特性判定
+    for flag_trait in FLAG_TRAITS:
+        traits_df[flag_trait] = traits_lines.str.contains(flag_trait, na=False)
 
-    # 存在フラグを立てる特性（フィルタリング用）
-    # ★修正点2: フィルタリングしやすいように、特性の有無をTrue/Falseで持つ列を作成
-    flag_effects = [
-        '攻撃力低下', '動きを止める', '動きを遅くする', 'ふっとばす', '呪い', '攻撃無効',
-        '渾身の一撃', '攻撃力上昇', '生き残る', 'クリティカル', '波動', '小波動', '烈波', '小烈波', '爆波'
-        # ... 他のフラグを立てたい特性もここに追加 ...
-    ]
-    for effect in flag_effects:
-        results_df[effect] = s.str.contains(effect, na=False)
+    agg_funcs = {col: 'any' for col in traits_df.columns}
+    traits_aggregated = traits_df.groupby(traits_df.index).agg(agg_funcs)
 
-    # --- 集計と結合 ---
-    # ★修正点3: 元の列を失わないように、生成した列だけを集計して結合
-    agg_dict = {col: 'any' for col in results_df.columns}
-    grouped_results = results_df.groupby(results_df.index).agg(agg_dict)
-    
-    final_df = df.join(grouped_results)
-    
-    # 結合後に生成されなかった列をFalseで埋める
-    all_generated_cols = list(boolean_effects.keys()) + flag_effects + colors
-    for col in all_generated_cols:
-        if col not in final_df.columns:
-            final_df[col] = False
-            
-    return final_df
+    df = df.join(traits_aggregated)
 
-@st.cache_data
-def load_enemy_data():
-    """Excelから敵データを読み込み、数値変換まで済ませたDataFrameを返す関数。"""
-    df = pd.read_excel('./nyanko_enemy_db.xlsx', index_col=0)
-    target_cols_enemy = ['体力','KB','速度','攻撃力','DPS','頻度F','攻発F','射程','お金']
-    for col in target_cols_enemy:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
+    # 未生成の列にFalse埋め
+    all_trait_cols = list(BOOLEAN_TRAITS.keys()) + FLAG_TRAITS + COLOR_TRAITS
+    for col in all_trait_cols:
+        if col not in df.columns:
+            df[col] = False
+
     return df
 
-# --- 2. データのロード ---
-# アプリ起動時に一度だけ（またはデータが変わった時だけ）実行される
-df_processed_orig = load_processed_cats_data()
-df_e_orig = load_enemy_data()
+
+@st.cache_data
+def load_and_process_enemy_data() -> pd.DataFrame:
+    """ExcelファイルからEnemyデータを読み込み、数値変換して返す。
+
+    Returns:
+        pd.DataFrame: 数値変換済みのEnemyデータフレーム
+    """
+    df = pd.read_excel(ENEMY_FILE, index_col=0)
+    df.dropna(axis=1, how='all', inplace=True)
+    for col in NUMERIC_COLS_ENEMY:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    return df
 
 
-# --- 3. 共通関数とUI要素の定義 ---
-target_cols_cats_display = ['own','No.','ランク','キャラクター名','コスト','再生産F','速度','範囲','射程','発生F','攻撃力','頻度F','DPS','体力','KB','特性']
-numeric_cols_cats = [col for col in target_cols_cats_display if col not in ['範囲', '特性', 'ランク', 'キャラクター名']]
-target_cols_enemy = ['体力','KB','速度','攻撃力','DPS','頻度F','攻発F','射程','お金']
+def filter_by_range_slider(
+    dataframe: pd.DataFrame, column: str
+) -> pd.DataFrame:
+    """指定した列の値の範囲をスライダーで選択し、フィルタリングする。
 
-# (スライダー関数とグラフ表示関数は変更なしのため省略)
-def add_slider(df, col):
-    min_val = df[col].dropna().min()
-    max_val = df[col].dropna().max()
-    if pd.isna(min_val) or pd.isna(max_val): return df
-    min_val, max_val = int(min_val), int(max_val)
-    if min_val == max_val: return df
-    step = max(int((max_val - min_val) / 100), 1)
-    range_val = st.sidebar.slider(f'{col}', min_val, max_val, (min_val, max_val), step=step)
-    filtered_df = df.dropna(subset=[col])
-    filtered_df = filtered_df[filtered_df[col].between(*range_val)]
-    return df[df.index.isin(filtered_df.index)]
+    Args:
+        dataframe (pd.DataFrame): 対象データフレーム
+        column (str): フィルタリング対象の列名
 
-def show_comparison_bar_chart(selected_data, current_max_data, current_min_data, item_order):
-    chart_data = []
-    # グラフ描画対象を数値のみに絞る
-    item_order_numeric = [item for item in item_order if item in numeric_cols_cats or item in target_cols_enemy]
-    for item in item_order_numeric:
-        if item in selected_data:
-            value = selected_data[item]
-            if pd.notna(value):
-                max_val = current_max_data.get(item)
-                normalized_value = (value / max_val * 100) if max_val and max_val > 0 else 0
-                chart_data.append({'項目': item, '値': value, '正規化された値': normalized_value, '表示中の最大値': max_val, '表示中の最小値': current_min_data.get(item)})
-    if not chart_data:
-        st.write("表示するグラフデータがありません。")
+    Returns:
+        pd.DataFrame: フィルタリング後のデータフレーム
+    """
+    if column not in dataframe.columns:
+        return dataframe
+
+    col_series = dataframe[column].dropna()
+    if col_series.empty:
+        return dataframe
+
+    min_value = int(col_series.min())
+    max_value = int(col_series.max())
+    if min_value == max_value:
+        return dataframe
+
+    step_size = max((max_value - min_value) // 100, 1)
+    selected_range = st.sidebar.slider(
+        label=column, min_value=min_value, max_value=max_value,
+        value=(min_value, max_value), step=step_size
+    )
+    return dataframe[dataframe[column].between(*selected_range)]
+
+
+def draw_comparison_bar_chart(
+    selected_row: pd.Series,
+    max_values: pd.Series,
+    min_values: pd.Series,
+    items: List[str],
+) -> None:
+    """選択された行の各数値項目の値を、現在の最大値と比較して棒グラフを表示する。
+
+    Args:
+        selected_row (pd.Series): 選択された1行のデータ
+        max_values (pd.Series): 表示中の最大値集合
+        min_values (pd.Series): 表示中の最小値集合
+        items (List[str]): グラフに表示する項目リスト
+    """
+    bar_chart_data = []
+    numeric_items = [
+        item for item in items
+        if item in NUMERIC_COLS_CATS or item in NUMERIC_COLS_ENEMY
+    ]
+
+    for item in numeric_items:
+        value = selected_row.get(item)
+        if pd.notna(value):
+            max_val = max_values.get(item, 0)
+            normalized_value = (value / max_val * 100) if max_val > 0 else 0
+            bar_chart_data.append({
+                '項目': item,
+                '値': value,
+                '正規化値': normalized_value,
+                '最大値': max_val,
+                '最小値': min_values.get(item),
+            })
+
+    if not bar_chart_data:
+        st.write("表示できるデータがありません。")
         return
-    df_chart = pd.DataFrame(chart_data)
-    sort_order = df_chart['項目'].tolist()
-    background = alt.Chart(df_chart).mark_bar(color='#e0e0e0', cornerRadius=3).encode(x=alt.X('max(正規化された値):Q', scale=alt.Scale(domain=[0, 100]), title="表示中の最大値に対する割合 (%)", axis=alt.Axis(format='%')), y=alt.Y('項目:N', sort=sort_order, title=None), tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', title='実際の値', format=','), alt.Tooltip('表示中の最大値:Q', format=','), alt.Tooltip('表示中の最小値:Q', format=',')] ).transform_calculate(正規化された値="100")
-    foreground = alt.Chart(df_chart).mark_bar(cornerRadius=3).encode(x='正規化された値:Q', y=alt.Y('項目:N', sort=sort_order, title=None), color=alt.condition("datum.項目 == '攻撃力' || datum.項目 == 'DPS'", alt.value('#d62728'), alt.value('#1f77b4')), tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', title='実際の値', format=','), alt.Tooltip('表示中の最大値:Q', format=','), alt.Tooltip('表示中の最小値:Q', format=',')] )
-    chart = (background + foreground).properties(height=alt.Step(30)).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
+
+    chart_df = pd.DataFrame(bar_chart_data)
+    sort_order = chart_df['項目'].tolist()
+
+    background_bars = alt.Chart(chart_df).mark_bar(
+        color='#e0e0e0', cornerRadius=3
+    ).encode(
+        x=alt.X('max(正規化値):Q', scale=alt.Scale(domain=[0, 100]), title='最大値に対する割合(%)'),
+        y=alt.Y('項目:N', sort=sort_order, title=None),
+        tooltip=[
+            alt.Tooltip('項目:N'),
+            alt.Tooltip('値:Q', format=','),
+            alt.Tooltip('最大値:Q', format=','),
+            alt.Tooltip('最小値:Q', format=','),
+        ],
+    ).transform_calculate(正規化値='100')
+
+    foreground_bars = alt.Chart(chart_df).mark_bar(cornerRadius=3).encode(
+        x='正規化値:Q',
+        y=alt.Y('項目:N', sort=sort_order, title=None),
+        color=alt.condition(
+            (alt.datum.項目 == '攻撃力') | (alt.datum.項目 == 'DPS'),
+            alt.value('#d62728'),
+            alt.value('#1f77b4'),
+        ),
+        tooltip=[
+            alt.Tooltip('項目:N'),
+            alt.Tooltip('値:Q', format=','),
+            alt.Tooltip('最大値:Q', format=','),
+            alt.Tooltip('最小値:Q', format=','),
+        ],
+    )
+
+    chart = (
+        background_bars + foreground_bars
+    ).properties(height=alt.Step(30)).configure_axis(grid=False).configure_view(
+        strokeWidth=0
+    ).configure_legend(disable=True)
+
     st.altair_chart(chart, use_container_width=True)
 
 
-# --- 4. メインのページ表示ロジック ---
-page = st.radio("tab", ["Cats", "Enemy"], horizontal=True, label_visibility="collapsed")
+def main() -> None:
+    """Streamlitアプリのメイン処理。CatsとEnemyタブを切り替えて表示する。"""
+    df_cats = load_and_process_cats_data()
+    df_enemy = load_and_process_enemy_data()
 
-if page == "Cats":
-    # ★最重要修正: 毎回、加工済みのオリジナルデータからコピーしてフィルタリングを開始する
-    df = df_processed_orig.copy()
-    
-    st.sidebar.title("Cats フィルター")
-    
-    # --- フィルタリング処理 ---
-    own = st.sidebar.checkbox('own')
-    search = st.sidebar.text_input("キャラクター名")
-    
-    if own: df = df[df['own'] > 0]
-    if search: df = df[df['キャラクター名'].str.contains(search, na=False)]
+    selected_page = st.radio(
+        label="tab",
+        options=["Cats", "Enemy"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
 
-    types_options = ['赤', '浮', '黒', 'メタル', '天使', 'エイリアン', 'ゾンビ', '古代種', '悪魔', '白']
-    # st.segmented_control はそのまま使用
-    types = st.segmented_control('対象属性', types_options, selection_mode='multi')
-    if types:
-        mask = pd.Series(True, index=df.index)
-        for t in types:
-            if t in df.columns:
-                mask &= df[t]
-        df = df[mask]
-        
-    rank = st.sidebar.multiselect('ランク', ['基本', 'EX', 'レア', '激レア', '超激レア', '伝説レア'])
-    if rank: df = df[df['ランク'].isin(rank)]
-    
-    attack_range = st.sidebar.multiselect('単体or範囲', ['単体', '範囲'], default=['単体', '範囲'])
-    if attack_range: df = df[df['範囲'].isin(attack_range)]
-    
-    # ★修正点4: フィルタリングのロジックを、特性解析で生成した列を使うように修正
-    effect_options = ['めっぽう強い', '打たれ強い', '超ダメージ', '攻撃力低下', '動きを止める', '動きを遅くする', 'ふっとばす', '呪い', '攻撃無効']
-    effects = st.sidebar.multiselect('特殊効果', effect_options)
-    if effects:
-        mask = pd.Series(True, index=df.index)
-        for e in effects:
-            if e in df.columns:
-                mask &= (df[e] == True) # 生成したTrue/Falseの列でフィルタ
-        df = df[mask]
+    if selected_page == "Cats":
+        df_filtered = df_cats.copy()
+        st.sidebar.title("Cats フィルター")
 
-    ability_options = ['波動', '小波動', '烈波', '小烈波', '爆波', 'クリティカル', '渾身の一撃', 'ゾンビキラー',  '悪魔シールド貫通', 'バリアブレイク','生き残る', '波動ストッパー']
-    abilities = st.sidebar.multiselect('特殊能力', ability_options)
-    if abilities:
-        mask = pd.Series(True, index=df.index)
-        for a in abilities:
-            if a in df.columns:
-                mask &= (df[a] == True) # 生成したTrue/Falseの列でフィルタ
-        df = df[mask]
+        if st.sidebar.checkbox('own'):
+            df_filtered = df_filtered[df_filtered['own'] > 0]
 
-    slider_settings = ['コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB']
-    for col_slider in slider_settings:
-        if col_slider in df.columns: df = add_slider(df, col_slider)
+        search_text = st.sidebar.text_input("キャラクター名")
+        if search_text:
+            df_filtered = df_filtered[df_filtered['キャラクター名'].str.contains(search_text, na=False)]
 
-    # --- 表示処理 ---
-    st.header("Cats DB")
-    if not df.empty:
-        df_current_max = df[numeric_cols_cats].max()
-        df_current_min = df[numeric_cols_cats].min()
-        
-        # 表示する列を主要なものに絞る
-        display_columns = [col for col in target_cols_cats_display if col in df.columns]
-        df_display = df[display_columns]
-        
-        gb = GridOptionsBuilder.from_dataframe(df_display)
-        gb.configure_default_column(suppressMenu=True)
-        gb.configure_selection(selection_mode="single")
-        # 最小幅を設定して見やすくする
-        gb.configure_column('キャラクター名', minWidth=150)
-        gb.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
-        
-        cols_to_set_width1 = ['ランク','範囲','KB','No.','own','速度']
-        # ループを使って、リスト内の各列に個別に設定を適用する
-        for col_name in cols_to_set_width1:
-            if col_name in df_display.columns:
-                gb.configure_column(
-                    col_name,
-                    initialWidth=100
-                )
-       
-        
-        grid_options = gb.build()
-
-        grid_response = AgGrid(
-            df_display,
-            gridOptions=grid_options,
-            update_mode=GridUpdateMode.SELECTION_CHANGED,
-            allow_unsafe_jscode=True,
-            fit_columns_on_grid_load=True,
-            
+        selected_colors = st.segmented_control(
+            '対象属性', COLOR_TRAITS, selection_mode='multi'
         )
-        
-        selected_rows = grid_response['selected_rows']
-        if selected_rows is not None and len(selected_rows) > 0:
-            selected = pd.DataFrame(selected_rows).iloc[0]
-            st.subheader(f"📊 {selected['キャラクター名']} のステータス")
-            show_comparison_bar_chart(selected, df_current_max, df_current_min, target_cols_cats_display)
-        else:
-            st.info("上の表からキャラクターをクリックして選択すると、ステータスグラフが表示されます。")
-    else:
-        st.warning("この条件に一致するキャラクターはいません。")
+        if selected_colors:
+            mask = pd.Series(True, index=df_filtered.index)
+            for color in selected_colors:
+                if color in df_filtered.columns:
+                    mask &= df_filtered[color]
+            df_filtered = df_filtered[mask]
 
-elif page == "Enemy":
-    # (Enemyタブのロジックは変更なしのため、元のコードをそのまま使用)
-    df_e = df_e_orig.copy()
-    st.sidebar.title("Enemy フィルター")
-    search = st.sidebar.text_input("敵キャラクター名")
-    if search: df_e = df_e[df_e['キャラクター名'].str.contains(search, na=False)]
-    
-    st.header("Enemy DB")
-    if not df_e.empty:
-        df_e_current_max = df_e[target_cols_enemy].max()
-        df_e_current_min = df_e[target_cols_enemy].min()
-        gb = GridOptionsBuilder.from_dataframe(df_e)
-        gb.configure_default_column(suppressMenu=True, filter=False)
-        gb.configure_selection(selection_mode="single")
-        grid_options = gb.build()
-        grid_response = AgGrid(df_e, gridOptions=grid_options, update_mode=GridUpdateMode.SELECTION_CHANGED, allow_unsafe_jscode=True, fit_columns_on_grid_load=True)
-        selected_rows = grid_response['selected_rows']
-        if selected_rows is not None and len(selected_rows) > 0:
-            selected = pd.DataFrame(selected_rows).iloc[0]
-            st.subheader(f"📊 {selected['キャラクター名']} のステータス")
-            show_comparison_bar_chart(selected, df_e_current_max, df_e_current_min, target_cols_enemy)
-    else:
-        st.warning("この条件に一致する敵キャラクターはいません。")
+        selected_ranks = st.sidebar.multiselect(
+            'ランク', ['基本', 'EX', 'レア', '激レア', '超激レア', '伝説レア']
+        )
+        if selected_ranks:
+            df_filtered = df_filtered[df_filtered['ランク'].isin(selected_ranks)]
+
+        selected_ranges = st.sidebar.multiselect('単体or範囲', ['単体', '範囲'], default=['単体', '範囲'])
+        if selected_ranges:
+            df_filtered = df_filtered[df_filtered['範囲'].isin(selected_ranges)]
+
+        selected_effects = st.sidebar.multiselect(
+            '特殊効果',
+            ['めっぽう強い', '打たれ強い', '超ダメージ', '攻撃力低下', '動きを止める',
+             '動きを遅くする', 'ふっとばす', '呪い', '攻撃無効']
+        )
+        if selected_effects:
+            mask = pd.Series(True, index=df_filtered.index)
+            for effect in selected_effects:
+                if effect in df_filtered.columns:
+                    mask &= df_filtered[effect]
+            df_filtered = df_filtered[mask]
+
+        selected_abilities = st.sidebar.multiselect(
+            '特殊能力',
+            ['波動', '小波動', '烈波', '小烈波', '爆波', 'クリティカル',
+             '渾身の一撃', 'ゾンビキラー', '悪魔シールド貫通', 'バリアブレイク',
+             '生き残る', '波動ストッパー']
+        )
+        if selected_abilities:
+            mask = pd.Series(True, index=df_filtered.index)
+            for ability in selected_abilities:
+                if ability in df_filtered.columns:
+                    mask &= df_filtered[ability]
+            df_filtered = df_filtered[mask]
+
+        slider_columns = ['コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB']
+        for col in slider_columns:
+            df_filtered = filter_by_range_slider(df_filtered, col)
+
+        st.header("Cats DB")
+
+        if not df_filtered.empty:
+            max_vals = df_filtered[NUMERIC_COLS_CATS].max()
+            min_vals = df_filtered[NUMERIC_COLS_CATS].min()
+
+            columns_to_display = [col for col in DISPLAY_COLS_CATS if col in df_filtered.columns]
+            display_df = df_filtered[columns_to_display]
+
+            grid_builder = GridOptionsBuilder.from_dataframe(display_df)
+            grid_builder.configure_default_column(suppressMenu=True)
+            grid_builder.configure_selection(selection_mode="single")
+            grid_builder.configure_column('キャラクター名', minWidth=150)
+            grid_builder.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
+
+            short_width_cols = ['ランク', '範囲', 'KB', 'No.', 'own', '速度']
+            for col_name in short_width_cols:
+                if col_name in display_df.columns:
+                    grid_builder.configure_column(col_name, initialWidth=100)
+
+            grid_options = grid_builder.build()
+
+            grid_response = AgGrid(
+                display_df,
+                gridOptions=grid_options,
+                update_mode=GridUpdateMode.SELECTION_CHANGED,
+                allow_unsafe_jscode=True,
+                fit_columns_on_grid_load=True,
+            )
+
+            selected_rows = grid_response.get('selected_rows', [])
+            if selected_rows:
+                selected_series = pd.DataFrame(selected_rows).iloc[0]
+                st.subheader(f"📊 {selected_series['キャラクター名']} のステータス")
+                draw_comparison_bar_chart(selected_series, max_vals, min_vals, DISPLAY_COLS_CATS)
+            else:
+                st.info("上の表からキャラクターをクリックして選択すると、ステータスグラフが表示されます。")
+        else:
+            st.warning("この条件に一致するキャラクターはいません。")
+
+    elif selected_page == "Enemy":
+        df_filtered = df_enemy.copy()
+        st.sidebar.title("Enemy フィルター")
+
+        search_text = st.sidebar.text_input("敵キャラクター名")
+        if search_text:
+            df_filtered = df_filtered[df_filtered['キャラクター名'].str.contains(search_text, na=False)]
+
+        st.header("Enemy DB")
+
+        if not df_filtered.empty:
+            max_vals = df_filtered[NUMERIC_COLS_ENEMY].max()
+            min_vals = df_filtered[NUMERIC_COLS_ENEMY].min()
+
+            grid_builder = GridOptionsBuilder.from_dataframe(df_filtered)
+            grid_builder.configure_default_column(suppressMenu=True, filter=False)
+            grid_builder.configure_selection(selection_mode="single")
+            grid_options = grid_builder.build()
+
+            grid_response = AgGrid(
+                df_filtered,
+                gridOptions=grid_options,
+                update_mode=GridUpdateMode.SELECTION_CHANGED,
+                allow_unsafe_jscode=True,
+                fit_columns_on_grid_load=True,
+            )
+
+            selected_rows = grid_response.get('selected_rows', [])
+            if selected_rows:
+                selected_series = pd.DataFrame(selected_rows).iloc[0]
+                st.subheader(f"📊 {selected_series['キャラクター名']} のステータス")
+                draw_comparison_bar_chart(selected_series, max_vals, min_vals, NUMERIC_COLS_ENEMY)
+        else:
+            st.warning("この条件に一致する敵キャラクターはいません。")
+
+
+if __name__ == "__main__":
+    main()
