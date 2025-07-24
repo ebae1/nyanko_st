@@ -5,6 +5,9 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import numpy as np
 from decimal import Decimal, InvalidOperation
 
+CATS_FILE = './catsdb.xlsx'
+ENEMY_FILE = './nyanko_enemy_db.xlsx'
+
 # --- ページ設定 ---
 st.set_page_config(layout='wide')
 
