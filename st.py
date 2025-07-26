@@ -454,8 +454,9 @@ def get_max_min_of_numeric_columns(
     return max_values, min_values
 
 
-# === メイン処理関数 ===
 
+
+# === メイン処理関数 ===
 
 def main() -> None:
     st.set_page_config(layout="wide")
@@ -463,7 +464,6 @@ def main() -> None:
     cats_data = load_cats_data()
     enemy_data = load_enemy_data()
 
-    # NUMERIC_COLUMNS_CATS と DISPLAY_COLUMNS_CATS は定義済みのため、動的に拡張する場合はコピーして追加
     numeric_columns_cats_extended = NUMERIC_COLUMNS_CATS.copy()
     display_columns_cats_extended = DISPLAY_COLUMNS_CATS.copy()
 
@@ -493,21 +493,17 @@ def main() -> None:
     if selected_tab == "Cats":
         with st.sidebar:
             st.title("Cats フィルター")
-
             filter_own_only = st.checkbox("Own")
             search_character_name = st.text_input("キャラクター名")
-
             selected_ranks = st.multiselect(
                 'ランク',
                 ['基本', 'EX', 'レア', '激レア', '超激レア', '伝説レア']
             )
-
             selected_ranges = st.multiselect(
                 '単体or範囲',
                 ['単体', '範囲'],
                 default=['単体', '範囲']
             )
-
             selected_effects = st.multiselect(
                 '特殊効果',
                 [
@@ -515,7 +511,6 @@ def main() -> None:
                     '動きを遅くする', 'ふっとばす', '呪い', '攻撃無効'
                 ]
             )
-
             selected_abilities = st.multiselect(
                 '特殊能力',
                 [
@@ -571,17 +566,11 @@ def main() -> None:
         grid_builder = GridOptionsBuilder.from_dataframe(display_df)
         grid_builder.configure_default_column(suppressMenu=True)
         grid_builder.configure_selection(selection_mode='single')
-
-        if 'キャラクター名' in display_df.columns:
-            grid_builder.configure_column('キャラクター名', minWidth=150)
-
-        if '特性' in display_df.columns:
-            grid_builder.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
-
+        grid_builder.configure_column('キャラクター名', minWidth=150)
+        grid_builder.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
         for col_name in ['ランク', '範囲', 'KB', 'No.', 'Own', '速度']:
             if col_name in display_df.columns:
                 grid_builder.configure_column(col_name, initialWidth=100)
-
         grid_options = grid_builder.build()
 
         grid_response = AgGrid(
@@ -590,9 +579,15 @@ def main() -> None:
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             allow_unsafe_jscode=True,
             fit_columns_on_grid_load=True,
+            key='cats_grid'  # 固定キーを指定し状態管理を安定化
         )
 
         selected_rows = grid_response.get('selected_rows', [])
+
+        # デバッグ表示（必要に応じてコメントアウトしてください）
+        # st.write(f"selected_rows type: {type(selected_rows)}")
+        # st.write(f"selected_rows content: {selected_rows}")
+
         if isinstance(selected_rows, list) and len(selected_rows) > 0:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
             character_name = selected_series.get('キャラクター名', '')
@@ -604,7 +599,6 @@ def main() -> None:
     elif selected_tab == "Enemy":
         with st.sidebar:
             st.title("Enemy フィルター")
-
             search_enemy_name = st.text_input("敵キャラクター名")
 
         filtered_enemy_df = enemy_data.copy()
@@ -623,7 +617,6 @@ def main() -> None:
         grid_builder = GridOptionsBuilder.from_dataframe(filtered_enemy_df)
         grid_builder.configure_default_column(suppressMenu=True, filter=False)
         grid_builder.configure_selection(selection_mode='single')
-
         grid_options = grid_builder.build()
 
         grid_response = AgGrid(
@@ -632,6 +625,7 @@ def main() -> None:
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             allow_unsafe_jscode=True,
             fit_columns_on_grid_load=True,
+            key='enemy_grid'  # 固定キー
         )
 
         selected_rows = grid_response.get('selected_rows', [])
@@ -640,7 +634,6 @@ def main() -> None:
             enemy_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {enemy_name} のステータス")
             draw_comparison_bar_chart(selected_series, max_vals, min_vals, NUMERIC_COLUMNS_ENEMY)
-
 
 if __name__ == "__main__":
     main()
