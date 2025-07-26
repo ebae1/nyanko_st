@@ -192,7 +192,7 @@ def draw_status_comparison(
     選択行の数値項目を最大値に対する割合で棒グラフ表示
     """
     chart_data = []
-    numeric_items = [i for i in items if i in NUMERIC_COLUMNS_CATS or i in NUMERIC_COLUMNS_ENEMY]
+    numeric_items = [i for i in items if (i in NUMERIC_COLUMNS_CATS or i in NUMERIC_COLUMNS_ENEMY) and i != 'Own']
 
     for item in numeric_items:
         value = row.get(item)
