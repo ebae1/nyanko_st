@@ -593,7 +593,7 @@ def main() -> None:
         )
 
         selected_rows = grid_response.get('selected_rows', [])
-        if selected_rows and len(selected_rows) > 0:
+        if isinstance(selected_rows, list) and len(selected_rows) > 0:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
             character_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {character_name} のステータス")
@@ -635,7 +635,7 @@ def main() -> None:
         )
 
         selected_rows = grid_response.get('selected_rows', [])
-        if selected_rows and len(selected_rows) > 0:
+        if isinstance(selected_rows, list) and len(selected_rows) > 0:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
             enemy_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {enemy_name} のステータス")
