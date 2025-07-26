@@ -600,9 +600,8 @@ def main() -> None:
                 selected_series = None
         else:
             selected_series = None
-        
+
         if selected_series is not None:
-            selected_series = pd.DataFrame(selected_rows).iloc[0]
             character_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {character_name} のステータス")
             draw_comparison_bar_chart(selected_series, max_vals, min_vals, visible_columns)
