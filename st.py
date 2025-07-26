@@ -114,6 +114,9 @@ def add_ratio_column(
 
     if fillna_value is not None:
         df[new_col_name] = df[new_col_name].fillna(fillna_value)
+    
+    # 小数点以下2桁に丸める
+    df[new_col_name] = df[new_col_name].round(2)
 
     return df
 
