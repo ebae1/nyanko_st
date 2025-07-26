@@ -2,22 +2,26 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 
 # === 定数定義 ===
 
+
 CATS_DATA_FILE_PATH = './0.datafiles/org_catsdb.xlsx'
 ENEMY_DATA_FILE_PATH = './0.datafiles/nyanko_enemy_db.xlsx'
+
 
 NUMERIC_COLUMNS_CATS: List[str] = [
     'Own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
     '攻撃力', '頻度F', 'DPS', '体力', 'KB'
 ]
 
+
 NUMERIC_COLUMNS_ENEMY: List[str] = [
     '体力', 'KB', '速度', '攻撃力', 'DPS', '頻度F', '攻発F', '射程', 'お金'
 ]
+
 
 DISPLAY_COLUMNS_CATS: List[str] = [
     'Own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
@@ -25,10 +29,12 @@ DISPLAY_COLUMNS_CATS: List[str] = [
     '体力', 'KB', '特性'
 ]
 
+
 COLOR_TRAITS: List[str] = [
     '赤', '浮', '黒', 'メタル', '天使', 'エイリアン',
     'ゾンビ', '古代種', '悪魔', '白'
 ]
+
 
 BOOLEAN_TRAITS: Dict[str, str] = {
     'めっぽう強い': 'めっぽう強い',
@@ -48,11 +54,13 @@ BOOLEAN_TRAITS: Dict[str, str] = {
     '悪魔シールド貫通': '悪魔シールド貫通',
 }
 
+
 FLAG_TRAITS: List[str] = [
     '攻撃力低下', '動きを止める', '動きを遅くする', 'ふっとばす',
     '呪い', '攻撃無効', '渾身の一撃', '攻撃力上昇', '生き残る',
     'クリティカル', '波動', '小波動', '烈波', '小烈波', '爆波',
 ]
+
 
 ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
     '属性', '射程', 'キャラクター名', '速度', '範囲', 'DPS', '攻撃力',
@@ -60,7 +68,65 @@ ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
 ]
 
 
+# === 比率計算関数 ===
+
+def add_ratio_column(
+    df: pd.DataFrame,
+    numerator_col: str,
+    denominator_col: str,
+    new_col_name: Optional[str] = None,
+    fillna_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    分子と分母の比率列を計算して追加する関数。
+
+    Args:
+        df: 対象のDataFrame
+        numerator_col: 分子の列名
+        denominator_col: 分母の列名
+        new_col_name: 新たに追加する列名。Noneなら '{numerator_col}/{denominator_col}' で自動生成
+        fillna_value: NaNや0除算時の代替値。指定しなければNaNのまま。
+
+    Returns:
+        新しい列を追加したDataFrame（元のdfを変更します）
+    """
+    if new_col_name is None:
+        new_col_name = f"{numerator_col}/{denominator_col}"
+
+    df[new_col_name] = df.apply(
+        lambda row: (row[numerator_col] / row[denominator_col])
+        if pd.notna(row[numerator_col]) and pd.notna(row[denominator_col]) and row[denominator_col] != 0
+        else None,
+        axis=1
+    )
+
+    if fillna_value is not None:
+        df[new_col_name] = df[new_col_name].fillna(fillna_value)
+
+    return df
+
+
+def add_multiple_ratio_columns(
+    df: pd.DataFrame,
+    ratios: List[Tuple[str, str, Optional[str]]]
+) -> pd.DataFrame:
+    """
+    複数の比率列をまとめて追加する。
+
+    Args:
+        df: 対象DataFrame
+        ratios: (分子列名, 分母列名, 新列名orNone) のリスト
+
+    Returns:
+        新しい列を追加したDataFrame
+    """
+    for numerator, denominator, new_col in ratios:
+        df = add_ratio_column(df, numerator, denominator, new_col_name=new_col)
+    return df
+
+
 # === データ読み込み関数 ===
+
 
 @st.cache_data
 def load_cats_data() -> pd.DataFrame:
@@ -68,6 +134,7 @@ def load_cats_data() -> pd.DataFrame:
     Catsデータを読み込み処理
     - 数値カラムの型変換
     - 特性列からフラグ列を追加
+    - 比率列を追加
     """
 
     df = pd.read_excel(
@@ -75,12 +142,17 @@ def load_cats_data() -> pd.DataFrame:
         index_col=0
     ).dropna(axis=0, how='all').dropna(axis=1, how='all')
 
-    # 数値カラムを適切な型に
+    # 数値カラムを適切な型に変換
     for numeric_col in NUMERIC_COLUMNS_CATS:
         if numeric_col in df.columns:
             df[numeric_col] = pd.to_numeric(df[numeric_col], errors='coerce')
 
     if '特性' not in df.columns or df['特性'].isnull().all():
+        # 特性がないなら比率列だけ追加して返す
+        df = add_multiple_ratio_columns(df, [
+            ('DPS', 'コスト', None),
+            ('体力', 'コスト', None)
+        ])
         return df
 
     # 特性を1行ずつ分解
@@ -112,6 +184,12 @@ def load_cats_data() -> pd.DataFrame:
         if trait not in df.columns:
             df[trait] = False
 
+    # 比率列一括追加
+    df = add_multiple_ratio_columns(df, [
+        ('DPS', 'コスト', None),
+        ('体力', 'コスト', None)
+    ])
+
     return df
 
 
@@ -134,6 +212,7 @@ def load_enemy_data() -> pd.DataFrame:
 
 
 # === フィルタリング用関数群 ===
+
 
 def filter_rows_by_numeric_range(
     df: pd.DataFrame,
@@ -244,6 +323,7 @@ def filter_rows_by_multiple_flags(
 
 
 # === 可視化関数 ===
+
 
 def draw_comparison_bar_chart(
     selected_row: pd.Series,
@@ -370,11 +450,29 @@ def get_max_min_of_numeric_columns(
 
 # === メイン処理関数 ===
 
+
 def main() -> None:
     st.set_page_config(layout="wide")
 
     cats_data = load_cats_data()
     enemy_data = load_enemy_data()
+
+    # NUMERIC_COLUMNS_CATS と DISPLAY_COLUMNS_CATS は定義済みのため、動的に拡張する場合はコピーして追加
+    numeric_columns_cats_extended = NUMERIC_COLUMNS_CATS.copy()
+    display_columns_cats_extended = DISPLAY_COLUMNS_CATS.copy()
+
+    # 比率列名（load_cats_data で追加済みの列名）
+    ratio_columns = ['DPS/コスト', '体力/コスト']
+
+    # 数値カラムリストに比率列を追加
+    for col in ratio_columns:
+        if col not in numeric_columns_cats_extended:
+            numeric_columns_cats_extended.append(col)
+
+    # 表示列にも比率列を追加（例として末尾に追加）
+    for col in ratio_columns:
+        if col in cats_data.columns and col not in display_columns_cats_extended:
+            display_columns_cats_extended.append(col)
 
     selected_tab = st.radio(
         label="tab",
@@ -440,8 +538,13 @@ def main() -> None:
 
         numeric_slider_columns = [
             'コスト', '再生産F', '速度', '射程', '発生F',
-            '攻撃力', '頻度F', 'DPS', '体力', 'KB'
+            '攻撃力', '頻度F', 'DPS', '体力', 'KB',
         ]
+        # DPS/コスト, 体力/コスト はスライダーに加えたいならここにも追記可能
+        for col in ratio_columns:
+            if col in filtered_cats_df.columns:
+                numeric_slider_columns.append(col)
+
         for numeric_col in numeric_slider_columns:
             filtered_cats_df = filter_rows_by_numeric_range(filtered_cats_df, numeric_col)
 
@@ -451,9 +554,9 @@ def main() -> None:
             st.warning("この条件に一致するキャラクターはいません。")
             return
 
-        max_vals, min_vals = get_max_min_of_numeric_columns(filtered_cats_df, NUMERIC_COLUMNS_CATS)
+        max_vals, min_vals = get_max_min_of_numeric_columns(filtered_cats_df, numeric_columns_cats_extended)
 
-        visible_columns = [col for col in DISPLAY_COLUMNS_CATS if col in filtered_cats_df.columns]
+        visible_columns = [col for col in display_columns_cats_extended if col in filtered_cats_df.columns]
         display_df = filtered_cats_df[visible_columns]
 
         grid_builder = GridOptionsBuilder.from_dataframe(display_df)
