@@ -99,9 +99,9 @@ class DataFilter:
     @staticmethod
     def apply_own_filter(
         df: pd.DataFrame,
-        own_column: str = 'own'
+        own_column: str = 'Own'
     ) -> pd.DataFrame:
         """所有フィルターの適用"""
-        if st.sidebar.checkbox('own') and own_column in df.columns:
+        if st.sidebar.checkbox('Own') and own_column in df.columns:
             return df[df[own_column] > 0]
         return df

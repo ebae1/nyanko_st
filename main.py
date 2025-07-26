@@ -128,7 +128,7 @@ class NyankoApp:
         grid_options = GridOptions(
             columns=columns_to_display,
             min_widths={'キャラクター名': 150},
-            special_columns=['ランク', '範囲', 'KB', 'No.', 'own', '速度']
+            special_columns=['ランク', '範囲', 'KB', 'No.', 'Own', '速度']
         )
 
         selected_row = self.grid_handler.configure_and_show_grid(

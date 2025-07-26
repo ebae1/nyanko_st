@@ -10,7 +10,7 @@ class FileSettings:
 @dataclass
 class ColumnSettings:
     NUMERIC_COLS_CATS: List[str] = field(default_factory=lambda: [
-        'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
+        'Own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
         '攻撃力', '頻度F', 'DPS', '体力', 'KB'
     ])
     NUMERIC_COLS_ENEMY: List[str] = field(default_factory=lambda: [
