@@ -6,10 +6,10 @@ from typing import Optional, List, Dict, Tuple, Any
 from settings import FileSettings, ColumnSettings
 
 class DataLoader:
-    def __init__(self):
-        self.file_settings = FileSettings()
-        self.column_settings = ColumnSettings()
+    file_settings = FileSettings()
+    column_settings = ColumnSettings()
 
+    @staticmethod
     @st.cache_data
     def load_cats_data(self) -> pd.DataFrame:
         """Catsデータの読み込み"""
@@ -21,7 +21,8 @@ class DataLoader:
         except Exception as e:
             st.error(f"Catsデータの読み込みに失敗しました: {str(e)}")
             return pd.DataFrame()
-
+    
+    @staticmethod
     @st.cache_data
     def load_enemy_data(self) -> pd.DataFrame:
         """敵データの読み込み"""
@@ -34,6 +35,7 @@ class DataLoader:
             st.error(f"敵データの読み込みに失敗しました: {str(e)}")
             return pd.DataFrame()
 
+    @staticmethod
     def _load_csv_file(
         self, file_path: str, numeric_cols: List[str]
     ) -> pd.DataFrame:

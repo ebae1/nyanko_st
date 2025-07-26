@@ -20,7 +20,7 @@ from settings import ColumnSettings, UISettings, TraitSettings
 class NyankoApp:
     def __init__(self):
         """アプリケーションの初期化"""
-        self.data_loader = DataLoader()
+       
         self.data_processor = DataProcessor()
         self.chart_renderer = ChartRenderer()
         self.grid_handler = GridHandler()
@@ -35,9 +35,9 @@ class NyankoApp:
     def run(self):
         """アプリケーションのメイン実行部分"""
         # データの読み込み
-        df_cats = self.data_loader.load_cats_data()
+        df_cats = DataLoader.load_cats_data()
         df_cats = self.data_processor.process_traits(df_cats)
-        df_enemy = self.data_loader.load_enemy_data()
+        df_enemy = DataLoader.load_enemy_data()
 
         # タブ選択
         selected_page = st.radio(
