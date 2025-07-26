@@ -385,8 +385,8 @@ def draw_comparison_bar_chart(
         '攻撃力': '#d62728',     # 赤
         'DPS': '#d62728',        # 赤
         '再生産F': '#6fb66b',    # 緑
-        '頻度F': '#bea557',      # 黄土色
-        '発生F': '#e9e8ae',      # 薄黄
+        '頻度F': "#0ee6d7",      # 黄土色
+        '発生F': "#08e0dcb5",      # 薄黄
         # 他は青（default）
     }
     default_color = '#1f77b4'
