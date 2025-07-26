@@ -5,8 +5,8 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from typing import List, Optional, Union, Dict
 
 # --- 定数 ---
-CATS_FILE = '../0.datafiles/org_catsdb.csv'
-ENEMY_FILE = '../0.datafiles/nyanko_enemy_db.csv'
+CATS_FILE = './0.datafiles/org_catsdb.csv'
+ENEMY_FILE = './0.datafiles/nyanko_enemy_db.csv'
 
 NUMERIC_COLS_CATS: List[str] = [
     'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
