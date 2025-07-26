@@ -68,7 +68,19 @@ ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
 ]
 
 
+# === 比率追加対象の列ペア定義 ===
+# (分子列名, 分母列名, 新列名=None （自動で "分子/分母" にする）)
+
+RATIO_COLUMN_PAIRS: List[Tuple[str, str, Optional[str]]] = [
+    ('DPS', 'コスト', None),
+    ('体力', 'コスト', None),
+    # ここに自由に追加可
+    # 例: ('攻撃力', '体力', '攻撃力/体力'),
+]
+
+
 # === 比率計算関数 ===
+
 
 def add_ratio_column(
     df: pd.DataFrame,
@@ -108,19 +120,19 @@ def add_ratio_column(
 
 def add_multiple_ratio_columns(
     df: pd.DataFrame,
-    ratios: List[Tuple[str, str, Optional[str]]]
+    ratio_pairs: List[Tuple[str, str, Optional[str]]]
 ) -> pd.DataFrame:
     """
     複数の比率列をまとめて追加する。
 
     Args:
         df: 対象DataFrame
-        ratios: (分子列名, 分母列名, 新列名orNone) のリスト
+        ratio_pairs: (分子列名, 分母列名, 新列名orNone) のリスト
 
     Returns:
         新しい列を追加したDataFrame
     """
-    for numerator, denominator, new_col in ratios:
+    for numerator, denominator, new_col in ratio_pairs:
         df = add_ratio_column(df, numerator, denominator, new_col_name=new_col)
     return df
 
@@ -149,10 +161,7 @@ def load_cats_data() -> pd.DataFrame:
 
     if '特性' not in df.columns or df['特性'].isnull().all():
         # 特性がないなら比率列だけ追加して返す
-        df = add_multiple_ratio_columns(df, [
-            ('DPS', 'コスト', None),
-            ('体力', 'コスト', None)
-        ])
+        df = add_multiple_ratio_columns(df, RATIO_COLUMN_PAIRS)
         return df
 
     # 特性を1行ずつ分解
@@ -185,10 +194,7 @@ def load_cats_data() -> pd.DataFrame:
             df[trait] = False
 
     # 比率列一括追加
-    df = add_multiple_ratio_columns(df, [
-        ('DPS', 'コスト', None),
-        ('体力', 'コスト', None)
-    ])
+    df = add_multiple_ratio_columns(df, RATIO_COLUMN_PAIRS)
 
     return df
 
@@ -461,15 +467,18 @@ def main() -> None:
     numeric_columns_cats_extended = NUMERIC_COLUMNS_CATS.copy()
     display_columns_cats_extended = DISPLAY_COLUMNS_CATS.copy()
 
-    # 比率列名（load_cats_data で追加済みの列名）
-    ratio_columns = ['DPS/コスト', '体力/コスト']
+    # 比率列名はRATIO_COLUMN_PAIRSから自動抽出
+    ratio_columns = []
+    for numerator, denominator, new_col in RATIO_COLUMN_PAIRS:
+        col_name = new_col if new_col is not None else f"{numerator}/{denominator}"
+        ratio_columns.append(col_name)
 
     # 数値カラムリストに比率列を追加
     for col in ratio_columns:
         if col not in numeric_columns_cats_extended:
             numeric_columns_cats_extended.append(col)
 
-    # 表示列にも比率列を追加（例として末尾に追加）
+    # 表示列にも比率列を追加（末尾に付ける。必要に応じて位置調整も可能）
     for col in ratio_columns:
         if col in cats_data.columns and col not in display_columns_cats_extended:
             display_columns_cats_extended.append(col)
@@ -540,9 +549,9 @@ def main() -> None:
             'コスト', '再生産F', '速度', '射程', '発生F',
             '攻撃力', '頻度F', 'DPS', '体力', 'KB',
         ]
-        # DPS/コスト, 体力/コスト はスライダーに加えたいならここにも追記可能
+        # 動的追加した比率列もスライダーに追加（存在する場合）
         for col in ratio_columns:
-            if col in filtered_cats_df.columns:
+            if col in filtered_cats_df.columns and col not in numeric_slider_columns:
                 numeric_slider_columns.append(col)
 
         for numeric_col in numeric_slider_columns:
