@@ -5,8 +5,8 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from typing import List, Dict, Tuple
 
 # === 定数定義 ===
-CATS_DATA_FILE = './0.datafiles/org_catsdb.xlsx'
-ENEMY_DATA_FILE = './0.datafiles/nyanko_enemy_db.xlsx'
+CATS_DATA_PATH = './0.datafiles/org_catsdb.xlsx'
+ENEMY_DATA_PATH = './0.datafiles/nyanko_enemy_db.xlsx'
 
 NUMERIC_COLUMNS_CATS: List[str] = [
     'Own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
@@ -52,50 +52,37 @@ FLAG_TRAITS: List[str] = [
     'クリティカル', '波動', '小波動', '烈波', '小烈波', '爆波',
 ]
 
-# === データロード・処理関数 ===
+# === データ読み込み・処理関数 ===
 
 @st.cache_data
 def load_cats_data() -> pd.DataFrame:
     """
-    Catsデータを読み込み、数値カラム変換および特性解析で各特性のフラグを追加する。
+    Catsデータを読み込み、数値カラム変換と特性フラグ列を追加
     """
-    df = pd.read_excel(CATS_DATA_FILE, index_col=0)
-    df.dropna(axis=0, how='all', inplace=True)
-    df.dropna(axis=1, how='all', inplace=True)
-
-    # 数値列を強制的に数値化（解析・比較のため）
+    df = pd.read_excel(CATS_DATA_PATH, index_col=0).dropna(axis=0, how='all').dropna(axis=1, how='all')
     for col in NUMERIC_COLUMNS_CATS:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # 特性列が無ければ以降の特性解析はスキップ
     if '特性' not in df.columns or df['特性'].isnull().all():
         return df
 
-    # 特性列は改行で区切られ複数存在する可能性があるため、行として展開
-    traits_expanded = df.assign(trait_lines=df['特性'].str.split('\n')).explode('trait_lines')
-    trait_lines = traits_expanded['trait_lines'].astype(str).str.strip()
-
+    trait_lines = df['特性'].str.split('\n').explode().str.strip()
     traits_flags = pd.DataFrame(index=trait_lines.index)
 
-    # 色特性フラグ。特定の条件付きregexを用いて含む行をTrueに
     for color in COLOR_TRAITS:
         pattern = rf'対(?!.*全敵.*{color}.*除く).*{color}.*'
         traits_flags[color] = trait_lines.str.contains(pattern, na=False)
 
-    # ブール特性フラグ（正規表現含む）
-    for trait_name, regex_pattern in BOOLEAN_TRAITS.items():
-        traits_flags[trait_name] = trait_lines.str.contains(regex_pattern, na=False, regex=True)
+    for trait_name, regex in BOOLEAN_TRAITS.items():
+        traits_flags[trait_name] = trait_lines.str.contains(regex, na=False, regex=True)
 
-    # フラグ特性（単純含有チェック）
     for flag_trait in FLAG_TRAITS:
         traits_flags[flag_trait] = trait_lines.str.contains(flag_trait, na=False)
 
-    # 行単位で論理和(any)集約、元データに結合
-    aggregated_traits = traits_flags.groupby(traits_flags.index).agg('any')
-    df = df.join(aggregated_traits)
+    aggregated_flags = traits_flags.groupby(traits_flags.index).any()
+    df = df.join(aggregated_flags)
 
-    # 欠損している可能性のある特性列はFalse補完しておく
     all_traits = list(BOOLEAN_TRAITS.keys()) + FLAG_TRAITS + COLOR_TRAITS
     for trait in all_traits:
         if trait not in df.columns:
@@ -103,50 +90,42 @@ def load_cats_data() -> pd.DataFrame:
 
     return df
 
-
 @st.cache_data
 def load_enemy_data() -> pd.DataFrame:
     """
-    Enemyデータを読み込み、数値列に変換する。
+    Enemyデータを読み込み、数値カラムを適切な型に変換
     """
-    df = pd.read_csv(ENEMY_DATA_FILE, index_col=0)
-    df.dropna(axis=0, how='all', inplace=True)
-    df.dropna(axis=1, how='all', inplace=True)
-
+    df = pd.read_excel(ENEMY_DATA_PATH, index_col=0).dropna(axis=0, how='all').dropna(axis=1, how='all')
     for col in NUMERIC_COLUMNS_ENEMY:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
     return df
 
+# === フィルタリング関数群 ===
 
-# === UI・フィルタ共通関数 ===
-
-def filter_dataframe_by_numeric_range(
-    dataframe: pd.DataFrame,
+def filter_numeric_range(
+    df: pd.DataFrame,
     column: str,
     sidebar_label_prefix: str = ""
 ) -> pd.DataFrame:
     """
-    指定カラムの値をスライダーで範囲選択してフィルターするUIを生成し、
-    選択範囲に該当する行のみを返す。
+    サイドバーのスライダーで指定範囲の行だけを抽出
     """
-    if column not in dataframe.columns:
-        return dataframe
+    if column not in df.columns:
+        return df
 
-    series = dataframe[column].dropna()
+    series = df[column].dropna()
     if series.empty:
-        return dataframe
+        return df
 
-    min_val = int(series.min())
-    max_val = int(series.max())
+    min_val, max_val = int(series.min()), int(series.max())
     if min_val == max_val:
-        return dataframe
+        return df
 
     step = max((max_val - min_val) // 100, 1)
     label = f"{sidebar_label_prefix}{column}" if sidebar_label_prefix else column
 
-    selected_range = st.sidebar.slider(
+    selected_min, selected_max = st.sidebar.slider(
         label=label,
         min_value=min_val,
         max_value=max_val,
@@ -154,72 +133,68 @@ def filter_dataframe_by_numeric_range(
         step=step
     )
 
-    return dataframe[dataframe[column].between(*selected_range)]
+    return df[df[column].between(selected_min, selected_max)]
 
-
-def filter_by_checkbox_column(
-    dataframe: pd.DataFrame, 
+def filter_checkbox_column(
+    df: pd.DataFrame,
     column: str,
-    checked_label: str,
+    is_checked: bool
 ) -> pd.DataFrame:
     """
-    単純に特定カラムの値が0より大きい行のみ抽出(checkboxオン時)
+    チェックボックスオン時、カラムが0より大きい行のみに絞る
     """
-    if checked_label and column in dataframe.columns:
-        return dataframe[dataframe[column] > 0]
-    return dataframe
+    if is_checked and column in df.columns:
+        return df[df[column] > 0]
+    return df
 
-
-def filter_by_text_search(
-    dataframe: pd.DataFrame,
+def filter_text_search(
+    df: pd.DataFrame,
     column: str,
-    search_text: str,
+    search_text: str
 ) -> pd.DataFrame:
     """
-    指定カラムに対し文字列含有検索し、合致する行のみ抽出
+    指定カラムのテキスト検索で絞り込み
     """
-    if search_text and column in dataframe.columns:
-        return dataframe[dataframe[column].str.contains(search_text, na=False)]
-    return dataframe
+    if search_text and column in df.columns:
+        return df[df[column].str.contains(search_text, na=False)]
+    return df
 
-
-def filter_by_multi_select_flags(
-    dataframe: pd.DataFrame,
-    flags: List[str],
+def filter_multi_flag_selection(
+    df: pd.DataFrame,
+    selected_flags: List[str]
 ) -> pd.DataFrame:
     """
-    True/Falseフラグの複数選択フィルタリング。全選択フラグに合致する行のみ抽出
+    フラグのAND条件で行を絞り込み。選択なしの場合は元のDFを返す
     """
-    if not flags:
-        return dataframe
+    if not selected_flags:
+        return df
 
-    mask = pd.Series(True, index=dataframe.index)
-    for flag in flags:
-        if flag in dataframe.columns:
-            mask &= dataframe[flag]
+    mask = pd.Series(True, index=df.index)
+    for flag in selected_flags:
+        if flag in df.columns:
+            mask &= df[flag]
 
-    return dataframe[mask]
-
+    return df[mask]
 
 # === 可視化関数 ===
 
-def draw_status_comparison_chart(
-    selected_row: pd.Series,
-    max_values: pd.Series,
-    min_values: pd.Series,
+def draw_status_comparison(
+    row: pd.Series,
+    max_vals: pd.Series,
+    min_vals: pd.Series,
     items: List[str],
 ) -> None:
     """
-    選択行の数値項目を、その項目の全体最大値と比較した割合の棒グラフとして描画
+    選択行の数値項目を最大値に対する割合で棒グラフ表示
     """
     chart_data = []
-    numeric_items = [item for item in items if item in NUMERIC_COLUMNS_CATS or item in NUMERIC_COLUMNS_ENEMY]
+    numeric_items = [i for i in items if i in NUMERIC_COLUMNS_CATS or i in NUMERIC_COLUMNS_ENEMY]
 
     for item in numeric_items:
-        value = selected_row.get(item)
+        value = row.get(item)
         if pd.notna(value):
-            max_val = max_values.get(item, 0)
-            min_val = min_values.get(item, None)
+            max_val = max_vals.get(item, 0)
+            min_val = min_vals.get(item, None)
             normalized = (value / max_val * 100) if max_val > 0 else 0
             chart_data.append({
                 '項目': item,
@@ -233,23 +208,18 @@ def draw_status_comparison_chart(
         st.write("表示できるデータがありません。")
         return
 
-    chart_df = pd.DataFrame(chart_data)
-    sort_order = chart_df['項目'].tolist()
+    df_chart = pd.DataFrame(chart_data)
+    sort_order = df_chart['項目'].tolist()
 
-    background = alt.Chart(chart_df).mark_bar(
+    background = alt.Chart(df_chart).mark_bar(
         color='#e0e0e0', cornerRadius=3
     ).encode(
         x=alt.X('max(正規化値):Q', scale=alt.Scale(domain=[0, 100]), title='最大値に対する割合(%)'),
         y=alt.Y('項目:N', sort=sort_order, title=None),
-        tooltip=[
-            alt.Tooltip('項目:N'),
-            alt.Tooltip('値:Q', format=','),
-            alt.Tooltip('最大値:Q', format=','),
-            alt.Tooltip('最小値:Q', format=','),
-        ],
+        tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', format=','), alt.Tooltip('最大値:Q', format=','), alt.Tooltip('最小値:Q', format=',')],
     ).transform_calculate(正規化値='100')
 
-    foreground = alt.Chart(chart_df).mark_bar(cornerRadius=3).encode(
+    foreground = alt.Chart(df_chart).mark_bar(cornerRadius=3).encode(
         x='正規化値:Q',
         y=alt.Y('項目:N', sort=sort_order, title=None),
         color=alt.condition(
@@ -257,35 +227,25 @@ def draw_status_comparison_chart(
             alt.value('#d62728'),
             alt.value('#1f77b4'),
         ),
-        tooltip=[
-            alt.Tooltip('項目:N'),
-            alt.Tooltip('値:Q', format=','),
-            alt.Tooltip('最大値:Q', format=','),
-            alt.Tooltip('最小値:Q', format=','),
-        ],
+        tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', format=','), alt.Tooltip('最大値:Q', format=','), alt.Tooltip('最小値:Q', format=',')],
     )
 
-    combined = (background + foreground).properties(height=alt.Step(30)).configure_axis(grid=False).configure_view(
-        strokeWidth=0
-    ).configure_legend(disable=True)
-
-    st.altair_chart(combined, use_container_width=True)
-
+    chart = (background + foreground).properties(height=alt.Step(30)).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
+    st.altair_chart(chart, use_container_width=True)
 
 def get_numeric_columns_max_min(
     df: pd.DataFrame,
     numeric_cols: List[str]
 ) -> Tuple[pd.Series, pd.Series]:
     """
-    指定した数値カラムに存在するカラムの最大値・最小値を取得する。
+    指定数値カラムの最大・最小値を取得
     """
-    valid_cols = [col for col in numeric_cols if col in df.columns]
+    valid_cols = [c for c in numeric_cols if c in df.columns]
     if not valid_cols:
         return pd.Series(dtype=float), pd.Series(dtype=float)
     return df[valid_cols].max(), df[valid_cols].min()
 
-
-# === メイン処理 ===
+# === メイン関数 ===
 
 def main() -> None:
     st.set_page_config(layout="wide")
@@ -298,52 +258,43 @@ def main() -> None:
     if selected_tab == "Cats":
         with st.sidebar:
             st.title("Cats フィルター")
-            own_only = st.checkbox("Own")
-            search_character_name = st.text_input("キャラクター名")
+            filter_own_only = st.checkbox("Own")
+            search_name = st.text_input("キャラクター名")
             selected_colors = st.multiselect('対象属性', COLOR_TRAITS)
             selected_ranks = st.multiselect('ランク', ['基本', 'EX', 'レア', '激レア', '超激レア', '伝説レア'])
             selected_ranges = st.multiselect('単体or範囲', ['単体', '範囲'], default=['単体', '範囲'])
-            selected_effects = st.multiselect('特殊効果',
-                                             ['めっぽう強い', '打たれ強い', '超ダメージ', '攻撃力低下', '動きを止める',
-                                              '動きを遅くする', 'ふっとばす', '呪い', '攻撃無効'])
-            selected_abilities = st.multiselect('特殊能力',
-                                               ['波動', '小波動', '烈波', '小烈波', '爆波',
-                                                'クリティカル', '渾身の一撃', 'ゾンビキラー', '悪魔シールド貫通', 'バリアブレイク',
-                                                '生き残る', '波動ストッパー'])
+            selected_effects = st.multiselect('特殊効果', [
+                'めっぽう強い', '打たれ強い', '超ダメージ', '攻撃力低下', '動きを止める',
+                '動きを遅くする', 'ふっとばす', '呪い', '攻撃無効'])
+            selected_abilities = st.multiselect('特殊能力', [
+                '波動', '小波動', '烈波', '小烈波', '爆波',
+                'クリティカル', '渾身の一撃', 'ゾンビキラー', '悪魔シールド貫通', 'バリアブレイク',
+                '生き残る', '波動ストッパー'])
 
         filtered_df = cats_df.copy()
-        if own_only:
-            filtered_df = filter_by_checkbox_column(filtered_df, 'Own', own_only)
-
-        filtered_df = filter_by_text_search(filtered_df, 'キャラクター名', search_character_name)
-
-        if selected_colors:
-            filtered_df = filter_by_multi_select_flags(filtered_df, selected_colors)
-
+        filtered_df = filter_checkbox_column(filtered_df, 'Own', filter_own_only)
+        filtered_df = filter_text_search(filtered_df, 'キャラクター名', search_name)
+        filtered_df = filter_multi_flag_selection(filtered_df, selected_colors)
         if selected_ranks:
             filtered_df = filtered_df[filtered_df['ランク'].isin(selected_ranks)]
-
         if selected_ranges:
             filtered_df = filtered_df[filtered_df['範囲'].isin(selected_ranges)]
+        filtered_df = filter_multi_flag_selection(filtered_df, selected_effects)
+        filtered_df = filter_multi_flag_selection(filtered_df, selected_abilities)
 
-        if selected_effects:
-            filtered_df = filter_by_multi_select_flags(filtered_df, selected_effects)
-
-        if selected_abilities:
-            filtered_df = filter_by_multi_select_flags(filtered_df, selected_abilities)
-
-        slider_cols = ['コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB']
-        for col in slider_cols:
-            filtered_df = filter_dataframe_by_numeric_range(filtered_df, col, sidebar_label_prefix="")
+        slider_columns = ['コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB']
+        for col in slider_columns:
+            filtered_df = filter_numeric_range(filtered_df, col)
 
         st.header("Cats DB")
+
         if filtered_df.empty:
             st.warning("この条件に一致するキャラクターはいません。")
             return
 
         max_vals, min_vals = get_numeric_columns_max_min(filtered_df, NUMERIC_COLUMNS_CATS)
-        display_columns = [col for col in DISPLAY_COLUMNS_CATS if col in filtered_df.columns]
-        display_df = filtered_df[display_columns]
+        visible_columns = [col for col in DISPLAY_COLUMNS_CATS if col in filtered_df.columns]
+        display_df = filtered_df[visible_columns]
 
         grid_builder = GridOptionsBuilder.from_dataframe(display_df)
         grid_builder.configure_default_column(suppressMenu=True)
@@ -370,10 +321,9 @@ def main() -> None:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
             character_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {character_name} のステータス")
-            draw_status_comparison_chart(selected_series, max_vals, min_vals, display_columns)
+            draw_status_comparison(selected_series, max_vals, min_vals, visible_columns)
         else:
             st.info("上の表からキャラクターをクリックして選択すると、ステータスグラフが表示されます。")
-
 
     elif selected_tab == "Enemy":
         with st.sidebar:
@@ -381,7 +331,7 @@ def main() -> None:
             search_enemy_name = st.text_input("敵キャラクター名")
 
         filtered_enemy_df = enemy_df.copy()
-        filtered_enemy_df = filter_by_text_search(filtered_enemy_df, 'キャラクター名', search_enemy_name)
+        filtered_enemy_df = filter_text_search(filtered_enemy_df, 'キャラクター名', search_enemy_name)
 
         st.header("Enemy DB")
         if filtered_enemy_df.empty:
@@ -409,8 +359,7 @@ def main() -> None:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
             enemy_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {enemy_name} のステータス")
-            draw_status_comparison_chart(selected_series, max_vals, min_vals, NUMERIC_COLUMNS_ENEMY)
-
+            draw_status_comparison(selected_series, max_vals, min_vals, NUMERIC_COLUMNS_ENEMY)
 
 if __name__ == "__main__":
     main()
