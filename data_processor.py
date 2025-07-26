@@ -1,7 +1,7 @@
 # services/data_processor.py
 import pandas as pd
 from typing import List
-from config.settings import TraitSettings
+from settings import TraitSettings
 
 class DataProcessor:
     def __init__(self):

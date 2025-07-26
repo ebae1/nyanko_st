@@ -2,7 +2,7 @@
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import pandas as pd
 from typing import Optional, Dict, Any
-from models.data_types import GridOptions
+from data_types import GridOptions
 
 class GridHandler:
     def configure_and_show_grid(

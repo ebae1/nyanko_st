@@ -3,7 +3,7 @@ import streamlit as st
 import altair as alt
 import pandas as pd
 from typing import List, Dict
-from models.data_types import ChartData
+from data_types import ChartData
 
 class ChartRenderer:
     def draw_comparison_chart(

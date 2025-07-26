@@ -1,16 +1,12 @@
 # main.py
 import streamlit as st
-from services.data_loader import DataLoader
-from services.data_processor import DataProcessor
-from services.chart_renderer import ChartRenderer
-from services.grid_handler import GridHandler
-from utils.filters import DataFilter
-from models.data_types import GridOptions
-from config.settings import (
-    ColumnSettings,
-    UISettings,
-    TraitSettings
-)
+from data_loader import DataLoader
+from data_processor import DataProcessor
+from chart_renderer import ChartRenderer
+from grid_handler import GridHandler
+from filters import DataFilter
+from data_types import GridOptions
+from settings import ColumnSettings, UISettings, TraitSettings
 
 class NyankoApp:
     def __init__(self):
