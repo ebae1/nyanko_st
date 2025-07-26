@@ -5,8 +5,8 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from typing import List, Dict, Tuple
 
 # --- 定数 ---
-CATS_FILE = './0.datafiles/org_catsdb.csv'
-ENEMY_FILE = './0.datafiles/nyanko_enemy_db.csv'
+CATS_FILE = './0.datafiles/org_catsdb.xlsx'
+ENEMY_FILE = './0.datafiles/nyanko_enemy_db.xlsx'
 
 NUMERIC_COLS_CATS: List[str] = [
     'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
@@ -52,7 +52,7 @@ st.set_page_config(layout='wide')
 @st.cache_data
 def load_and_process_cats_data() -> pd.DataFrame:
     """Catsデータ読込＋特性抽出＋数値変換。"""
-    df = pd.read_csv(CATS_FILE, index_col=0)
+    df = pd.read_excel(CATS_FILE, index_col=0)
     df.dropna(axis=1, how='all', inplace=True)
     df.dropna(axis=0, how='all', inplace=True)
     # 数値変換
