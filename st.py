@@ -277,7 +277,7 @@ def main() -> None:
                 fit_columns_on_grid_load=True,
             )
             selected_user_rows = grid_response.get('selected_rows', [])
-            if selected_user_rows:
+            if selected_user_rows is not None and len(selected_user_rows) > 0:
                 selected_series = pd.DataFrame(selected_user_rows).iloc[0]
                 name = selected_series.get('キャラクター名', '')
                 st.subheader(f"📊 {name} のステータス")
@@ -309,7 +309,7 @@ def main() -> None:
                 fit_columns_on_grid_load=True,
             )
             selected_user_rows = grid_response.get('selected_rows', [])
-            if selected_user_rows:
+            if selected_user_rows is not None and len(selected_user_rows) > 0:
                 selected_series = pd.DataFrame(selected_user_rows).iloc[0]
                 name = selected_series.get('キャラクター名', '')
                 st.subheader(f"📊 {name} のステータス")
