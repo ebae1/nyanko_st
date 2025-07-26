@@ -1,10 +1,196 @@
-def main() -> None:
-    """メイン処理"""
-    df_cats = load_data(CATS_FILE, NUMERIC_COLS_CATS)
-    df_cats = process_traits(df_cats)
-    
-    df_enemy = load_data(ENEMY_FILE, NUMERIC_COLS_ENEMY)
+import pandas as pd
+import streamlit as st
+import altair as alt
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from typing import List, Dict, Tuple
 
+# --- 定数 ---
+CATS_FILE = './0.datafiles/org_catsdb.csv'
+ENEMY_FILE = './0.datafiles/nyanko_enemy_db.csv'
+
+NUMERIC_COLS_CATS: List[str] = [
+    'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
+    '攻撃力', '頻度F', 'DPS', '体力', 'KB'
+]
+NUMERIC_COLS_ENEMY: List[str] = [
+    '体力', 'KB', '速度', '攻撃力', 'DPS', '頻度F', '攻発F', '射程', 'お金'
+]
+DISPLAY_COLS_CATS: List[str] = [
+    'own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
+    '速度', '範囲', '射程', '発生F', '攻撃力', '頻度F', 'DPS',
+    '体力', 'KB', '特性'
+]
+COLOR_TRAITS: List[str] = [
+    '赤', '浮', '黒', 'メタル', '天使', 'エイリアン',
+    'ゾンビ', '古代種', '悪魔', '白'
+]
+BOOLEAN_TRAITS: Dict[str, str] = {
+    'めっぽう強い': 'めっぽう強い',
+    '打たれ強い': '打たれ強い',
+    '超打たれ強い': '超打たれ強い',
+    '超ダメージ': '超ダメージ',
+    '極ダメージ': '極ダメージ',
+    'ターゲット限定': 'のみに攻撃',
+    '魂攻撃': '魂攻撃',
+    'メタルキラー': 'メタルキラー',
+    '被ダメージ1': r'被ダメージ\s*1',
+    '波動ストッパー': '波動ストッパー',
+    '烈波カウンター': '烈波カウンター',
+    '1回攻撃': '1回攻撃',
+    'ゾンビキラー': 'ゾンビキラー',
+    'バリアブレイク': 'バリアブレイク',
+    '悪魔シールド貫通': '悪魔シールド貫通',
+}
+FLAG_TRAITS: List[str] = [
+    '攻撃力低下', '動きを止める', '動きを遅くする', 'ふっとばす',
+    '呪い', '攻撃無効', '渾身の一撃', '攻撃力上昇', '生き残る',
+    'クリティカル', '波動', '小波動', '烈波', '小烈波', '爆波',
+]
+
+st.set_page_config(layout='wide')
+
+@st.cache_data
+def load_and_process_cats_data() -> pd.DataFrame:
+    """Catsデータ読込＋特性抽出＋数値変換。"""
+    df = pd.read_csv(CATS_FILE, index_col=0)
+    df.dropna(axis=1, how='all', inplace=True)
+    df.dropna(axis=0, how='all', inplace=True)
+    # 数値変換
+    for col in NUMERIC_COLS_CATS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    if '特性' not in df.columns or df['特性'].isnull().all():
+        return df
+
+    exploded_df = df.assign(line=df['特性'].str.split('\n')).explode('line')
+    traits_lines = exploded_df['line'].astype(str).str.strip()
+    traits_df = pd.DataFrame(index=traits_lines.index)
+    # 色特性
+    for color in COLOR_TRAITS:
+        pattern = rf'対(?!.*全敵.*{color}.*除く).*{color}.*'
+        traits_df[color] = traits_lines.str.contains(pattern, na=False)
+    # boolean特性
+    for trait_name, regex_pattern in BOOLEAN_TRAITS.items():
+        traits_df[trait_name] = traits_lines.str.contains(regex_pattern, na=False, regex=True)
+    # フラグ特性
+    for flag_trait in FLAG_TRAITS:
+        traits_df[flag_trait] = traits_lines.str.contains(flag_trait, na=False)
+    # 集約
+    agg_funcs = {col: 'any' for col in traits_df.columns}
+    traits_aggregated = traits_df.groupby(traits_df.index).agg(agg_funcs)
+    df = df.join(traits_aggregated)
+    # 欠損traitはFalseで補完
+    all_trait_cols = list(BOOLEAN_TRAITS.keys()) + FLAG_TRAITS + COLOR_TRAITS
+    for col in all_trait_cols:
+        if col not in df.columns:
+            df[col] = False
+    return df
+
+@st.cache_data
+def load_and_process_enemy_data() -> pd.DataFrame:
+    """Enemyデータ読込＋数値変換。"""
+    df = pd.read_csv(ENEMY_FILE, index_col=0)
+    df.dropna(axis=1, how='all', inplace=True)
+    df.dropna(axis=0, how='all', inplace=True)
+    for col in NUMERIC_COLS_ENEMY:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+def filter_by_range_slider(
+    dataframe: pd.DataFrame, column: str
+) -> pd.DataFrame:
+    """数値カラムをslid
+erフィルタ。"""
+    if column not in dataframe.columns:
+        return dataframe
+    col_series = dataframe[column].dropna()
+    if col_series.empty:
+        return dataframe
+    min_value = int(col_series.min())
+    max_value = int(col_series.max())
+    if min_value == max_value:
+        return dataframe
+    step_size = max((max_value - min_value) // 100, 1)
+    selected_range = st.sidebar.slider(
+        label=column, min_value=min_value, max_value=max_value,
+        value=(min_value, max_value), step=step_size
+    )
+    return dataframe[dataframe[column].between(*selected_range)]
+
+def draw_comparison_bar_chart(
+    selected_row: pd.Series,
+    max_values: pd.Series,
+    min_values: pd.Series,
+    items: List[str],
+) -> None:
+    """選択データの数値項目をmax/min比較棒グラフ表示。"""
+    bar_chart_data = []
+    numeric_items = [
+        item for item in items if item in NUMERIC_COLS_CATS or item in NUMERIC_COLS_ENEMY
+    ]
+    for item in numeric_items:
+        value = selected_row.get(item)
+        if pd.notna(value):
+            max_val = max_values.get(item, 0)
+            normalized_value = (value / max_val * 100) if max_val > 0 else 0
+            bar_chart_data.append({
+                '項目': item,
+                '値': value,
+                '正規化値': normalized_value,
+                '最大値': max_val,
+                '最小値': min_values.get(item),
+            })
+    if not bar_chart_data:
+        st.write("表示できるデータがありません。")
+        return
+    chart_df = pd.DataFrame(bar_chart_data)
+    sort_order = chart_df['項目'].tolist()
+    background_bars = alt.Chart(chart_df).mark_bar(
+        color='#e0e0e0', cornerRadius=3
+    ).encode(
+        x=alt.X('max(正規化値):Q', scale=alt.Scale(domain=[0, 100]), title='最大値に対する割合(%)'),
+        y=alt.Y('項目:N', sort=sort_order, title=None),
+        tooltip=[
+            alt.Tooltip('項目:N'),
+            alt.Tooltip('値:Q', format=','),
+            alt.Tooltip('最大値:Q', format=','),
+            alt.Tooltip('最小値:Q', format=','),
+        ],
+    ).transform_calculate(正規化値='100')
+    foreground_bars = alt.Chart(chart_df).mark_bar(cornerRadius=3).encode(
+        x='正規化値:Q',
+        y=alt.Y('項目:N', sort=sort_order, title=None),
+        color=alt.condition(
+            (alt.datum.項目 == '攻撃力') | (alt.datum.項目 == 'DPS'),
+            alt.value('#d62728'),
+            alt.value('#1f77b4'),
+        ),
+        tooltip=[
+            alt.Tooltip('項目:N'),
+            alt.Tooltip('値:Q', format=','),
+            alt.Tooltip('最大値:Q', format=','),
+            alt.Tooltip('最小値:Q', format=','),
+        ],
+    )
+    chart = (
+        background_bars + foreground_bars
+    ).properties(height=alt.Step(30)).configure_axis(grid=False).configure_view(
+        strokeWidth=0
+    ).configure_legend(disable=True)
+    st.altair_chart(chart, use_container_width=True)
+
+def safe_get_max_min(df: pd.DataFrame, numeric_cols: List[str]) -> Tuple[pd.Series, pd.Series]:
+    """DataFrameから存在する数値カラムだけmax/minを取得。"""
+    cols = [col for col in numeric_cols if col in df.columns]
+    if not cols:
+        return pd.Series(dtype=float), pd.Series(dtype=float)
+    return df[cols].max(), df[cols].min()
+
+def main() -> None:
+    """メイン：Streamlitページ切替・KeyError対策つき"""
+    df_cats = load_and_process_cats_data()
+    df_enemy = load_and_process_enemy_data()
     selected_page = st.radio(
         label="tab",
         options=["Cats", "Enemy"],
@@ -64,7 +250,7 @@ def main() -> None:
 
         slider_columns = ['コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB']
         for col in slider_columns:
-            df_filtered = filter_by_slider(df_filtered, col)
+            df_filtered = filter_by_range_slider(df_filtered, col)
 
         st.header("Cats DB")
 
@@ -91,12 +277,11 @@ def main() -> None:
                 fit_columns_on_grid_load=True,
             )
             selected_user_rows = grid_response.get('selected_rows', [])
-            
             if selected_user_rows:
                 selected_series = pd.DataFrame(selected_user_rows).iloc[0]
                 name = selected_series.get('キャラクター名', '')
                 st.subheader(f"📊 {name} のステータス")
-                draw_chart(selected_series, max_vals, min_vals, columns_to_display)
+                draw_comparison_bar_chart(selected_series, max_vals, min_vals, columns_to_display)
             else:
                 st.info("上の表からキャラクターをクリックして選択すると、ステータスグラフが表示されます。")
         else:
@@ -124,12 +309,11 @@ def main() -> None:
                 fit_columns_on_grid_load=True,
             )
             selected_user_rows = grid_response.get('selected_rows', [])
-            
             if selected_user_rows:
                 selected_series = pd.DataFrame(selected_user_rows).iloc[0]
                 name = selected_series.get('キャラクター名', '')
                 st.subheader(f"📊 {name} のステータス")
-                draw_chart(selected_series, max_vals, min_vals, NUMERIC_COLS_ENEMY)
+                draw_comparison_bar_chart(selected_series, max_vals, min_vals, NUMERIC_COLS_ENEMY)
         else:
             st.warning("この条件に一致する敵キャラクターはいません。")
 
