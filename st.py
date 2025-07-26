@@ -344,7 +344,7 @@ def main() -> None:
             return
 
         max_vals, min_vals = get_numeric_columns_max_min(filtered_enemy_df, NUMERIC_COLUMNS_ENEMY)
-        columns_order = [ENEMY_COL_ORDER]
+        columns_order = ENEMY_COL_ORDER
         columns_to_show = [col for col in columns_order if col in filtered_enemy_df.columns]
         filtered_enemy_df = filtered_enemy_df[columns_to_show]
         
