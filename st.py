@@ -5,8 +5,8 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from typing import List, Optional, Union, Dict
 
 # --- 定数 ---
-CATS_FILE = './catsdb.xlsx'
-ENEMY_FILE = './nyanko_enemy_db.xlsx'
+CATS_FILE = '../0.datafiles/org_catsdb.csv'
+ENEMY_FILE = '../0.datafiles/nyanko_enemy_db.csv'
 
 NUMERIC_COLS_CATS: List[str] = [
     'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
@@ -61,8 +61,10 @@ def load_and_process_cats_data() -> pd.DataFrame:
     Returns:
         pd.DataFrame: 特性解析後かつ数値変換済みのCatsデータフレーム
     """
-    df = pd.read_excel(CATS_FILE, index_col=0)
-
+    df = pd.read_csv(CATS_FILE, index_col=0)
+    df.dropna(axis=1,how='all', inplace=True)   #空の列を削除
+    df.dropna(axis=0,how='all', inplace=True)   #空の行を削除
+    
     # 数値列を明示的に数値変換
     for col in NUMERIC_COLS_CATS:
         if col in df.columns:
@@ -109,8 +111,9 @@ def load_and_process_enemy_data() -> pd.DataFrame:
     Returns:
         pd.DataFrame: 数値変換済みのEnemyデータフレーム
     """
-    df = pd.read_excel(ENEMY_FILE, index_col=0)
-    df.dropna(axis=1, how='all', inplace=True)
+    df = pd.read_csv(ENEMY_FILE, index_col=0)
+    df.dropna(axis=1,how='all', inplace=True)   #空の列を削除
+    df.dropna(axis=0,how='all', inplace=True)   #空の行を削除
     for col in NUMERIC_COLS_ENEMY:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
