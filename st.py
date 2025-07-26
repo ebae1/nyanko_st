@@ -388,26 +388,23 @@ def draw_comparison_bar_chart(
     }
     default_color = '#1f77b4'
 
-    bar_foreground = alt.Chart(df_chart).mark_bar(cornerRadius=3).encode(
-        x='正規化値:Q',
-        y=alt.Y('項目:N', sort=sort_order, title=None),
-        color=alt.Color(
-            '項目:N',
-            scale=alt.Scale(domain=list(color_mapping.keys()), range=list(color_mapping.values())),
-            legend=None,
-            condition=alt.condition(
-                alt.datum.項目,  # dummy condition to preserve colors
-                alt.value(default_color),
-                alt.value(default_color)
-            )
-        ),
-        tooltip=[
-            alt.Tooltip('項目:N'),
-            alt.Tooltip('値:Q', format=','),
-            alt.Tooltip('最大値:Q', format=','),
-            alt.Tooltip('最小値:Q', format=','),
-        ],
+    bar_foreground = alt.Chart(df_chart).mark_bar(
+        cornerRadius=3).encode(
+    x='正規化値:Q',
+    y=alt.Y('項目:N', sort=sort_order, title=None),
+    color=alt.Color(
+        '項目:N',
+        scale=alt.Scale(domain=list(color_mapping.keys()), range=list(color_mapping.values())),
+        legend=None
+    ),
+    tooltip=[
+        alt.Tooltip('項目:N'),
+        alt.Tooltip('値:Q', format=','),
+        alt.Tooltip('最大値:Q', format=','),
+        alt.Tooltip('最小値:Q', format=','),
+    ],
     )
+
 
     bar_background = alt.Chart(df_chart).mark_bar(
         color='#e0e0e0', cornerRadius=3
