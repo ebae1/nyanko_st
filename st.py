@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 import altair as alt
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 from typing import List, Dict, Tuple, Optional
 
 
@@ -571,6 +571,11 @@ def main() -> None:
         for col_name in ['ランク', '範囲', 'KB', 'No.', 'Own', '速度']:
             if col_name in display_df.columns:
                 grid_builder.configure_column(col_name, initialWidth=100)
+                
+        for col in ratio_columns :
+            if col in display_df.columns:
+                grid_builder.configure_column(col, valueFormatter="x.toFixed(2)")
+                
         grid_options = grid_builder.build()
 
         grid_response = AgGrid(
