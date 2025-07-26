@@ -192,7 +192,8 @@ def draw_status_comparison(
     選択行の数値項目を最大値に対する割合で棒グラフ表示
     """
     chart_data = []
-    numeric_items = [i for i in items if (i in NUMERIC_COLUMNS_CATS or i in NUMERIC_COLUMNS_ENEMY) and i != 'Own']
+    numeric_items = [i for i in items 
+                     if (i in NUMERIC_COLUMNS_CATS or i in NUMERIC_COLUMNS_ENEMY) and i != 'Own']
 
     for item in numeric_items:
         value = row.get(item)
@@ -215,27 +216,55 @@ def draw_status_comparison(
     df_chart = pd.DataFrame(chart_data)
     sort_order = df_chart['項目'].tolist()
 
+    # 項目ごとの色をあらかじめ定義
+    color_mapping = {
+        '攻撃力': '#d62728',   # 赤
+        'DPS': '#d62728',      # 赤
+        '再生産F': '#6fb66b',  # 緑
+        '頻度F': '#bea557',    # 黄土色
+        '発生F': '#e9e8ae',    # 薄黄
+        # その他の項目は以下のdefault_colorに
+    }
+    default_color = '#1f77b4'  # 青
+
+    foreground = alt.Chart(df_chart).mark_bar(cornerRadius=3).encode(
+        x='正規化値:Q',
+        y=alt.Y('項目:N', sort=sort_order, title=None),
+        color=alt.Color(
+            '項目:N',
+            scale=alt.Scale(
+                domain=list(color_mapping.keys()),
+                range=list(color_mapping.values()),
+            ),
+            legend=None,
+        ),
+        tooltip=[
+            alt.Tooltip('項目:N'),
+            alt.Tooltip('値:Q', format=','),
+            alt.Tooltip('最大値:Q', format=','),
+            alt.Tooltip('最小値:Q', format=','),
+        ],
+    )
+
     background = alt.Chart(df_chart).mark_bar(
         color='#e0e0e0', cornerRadius=3
     ).encode(
         x=alt.X('max(正規化値):Q', scale=alt.Scale(domain=[0, 100]), title='最大値に対する割合(%)'),
         y=alt.Y('項目:N', sort=sort_order, title=None),
-        tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', format=','), alt.Tooltip('最大値:Q', format=','), alt.Tooltip('最小値:Q', format=',')],
+        tooltip=[
+            alt.Tooltip('項目:N'),
+            alt.Tooltip('値:Q', format=','),
+            alt.Tooltip('最大値:Q', format=','),
+            alt.Tooltip('最小値:Q', format=','),
+        ],
     ).transform_calculate(正規化値='100')
 
-    foreground = alt.Chart(df_chart).mark_bar(cornerRadius=3).encode(
-        x='正規化値:Q',
-        y=alt.Y('項目:N', sort=sort_order, title=None),
-        color=alt.condition(
-            (alt.datum.項目 == '攻撃力') | (alt.datum.項目 == 'DPS'),
-            alt.value('#d62728'),
-            alt.value('#1f77b4'),
-        ),
-        tooltip=[alt.Tooltip('項目:N'), alt.Tooltip('値:Q', format=','), alt.Tooltip('最大値:Q', format=','), alt.Tooltip('最小値:Q', format=',')],
-    )
+    chart = (background + foreground).properties(
+        height=alt.Step(30)
+    ).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
 
-    chart = (background + foreground).properties(height=alt.Step(30)).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
     st.altair_chart(chart, use_container_width=True)
+
 
 def get_numeric_columns_max_min(
     df: pd.DataFrame,
