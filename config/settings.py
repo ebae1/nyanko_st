@@ -17,7 +17,7 @@ class ColumnSettings:
         '体力', 'KB', '速度', '攻撃力', 'DPS', '頻度F', '攻発F', '射程', 'お金'
     ])
     DISPLAY_COLS_CATS: List[str] = field(default_factory=lambda: [
-        'own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
+        'Own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
         '速度', '範囲', '射程', '発生F', '攻撃力', '頻度F', 'DPS',
         '体力', 'KB', '特性'
     ])
