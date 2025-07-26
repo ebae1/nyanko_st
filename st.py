@@ -52,6 +52,10 @@ FLAG_TRAITS: List[str] = [
     'クリティカル', '波動', '小波動', '烈波', '小烈波', '爆波',
 ]
 
+ENEMY_COL_ORDER: List[str] = [
+    '属性','射程','キャラクター名','速度','範囲','DPS','攻撃力','頻度F','攻発F','体力','KB','お金','特性','No.',
+]
+
 # === データ読み込み・処理関数 ===
 
 @st.cache_data
@@ -340,8 +344,10 @@ def main() -> None:
             return
 
         max_vals, min_vals = get_numeric_columns_max_min(filtered_enemy_df, NUMERIC_COLUMNS_ENEMY)
-        columns_to_show = filtered_enemy_df.columns.tolist()
-
+        columns_order = [ENEMY_COL_ORDER]
+        columns_to_show = [col for col in columns_order if col in filtered_enemy_df.columns]
+        filtered_enemy_df = filtered_enemy_df[columns_to_show]
+        
         grid_builder = GridOptionsBuilder.from_dataframe(filtered_enemy_df)
         grid_builder.configure_default_column(suppressMenu=True, filter=False)
         grid_builder.configure_selection(selection_mode='single')
