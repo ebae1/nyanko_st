@@ -97,11 +97,11 @@ class DataFilter:
         return df[cols].max(), df[cols].min()
 
     @staticmethod
-    def apply_own_filter(
+    def apply_Own_filter(
         df: pd.DataFrame,
-        own_column: str = 'Own'
+        Own_column: str = 'Own'
     ) -> pd.DataFrame:
         """所有フィルターの適用"""
-        if st.sidebar.checkbox('Own') and own_column in df.columns:
-            return df[df[own_column] > 0]
+        if st.sidebar.checkbox('Own') and Own_column in df.columns:
+            return df[df[Own_column] > 0]
         return df

@@ -9,14 +9,14 @@ CATS_FILE = './0.datafiles/org_catsdb.xlsx'
 ENEMY_FILE = './0.datafiles/nyanko_enemy_db.xlsx'
 
 NUMERIC_COLS_CATS: List[str] = [
-    'own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
+    'Own', 'No.', 'コスト', '再生産F', '速度', '射程', '発生F',
     '攻撃力', '頻度F', 'DPS', '体力', 'KB'
 ]
 NUMERIC_COLS_ENEMY: List[str] = [
     '体力', 'KB', '速度', '攻撃力', 'DPS', '頻度F', '攻発F', '射程', 'お金'
 ]
 DISPLAY_COLS_CATS: List[str] = [
-    'own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
+    'Own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
     '速度', '範囲', '射程', '発生F', '攻撃力', '頻度F', 'DPS',
     '体力', 'KB', '特性'
 ]
@@ -202,9 +202,9 @@ def main() -> None:
         df_filtered = df_cats.copy()
         st.sidebar.title("Cats フィルター")
 
-        if st.sidebar.checkbox('own'):
-            if 'own' in df_filtered.columns:
-                df_filtered = df_filtered[df_filtered['own'] > 0]
+        if st.sidebar.checkbox('Own'):
+            if 'Own' in df_filtered.columns:
+                df_filtered = df_filtered[df_filtered['Own'] > 0]
 
         search_text = st.sidebar.text_input("キャラクター名")
         if search_text and 'キャラクター名' in df_filtered.columns:
@@ -265,7 +265,7 @@ def main() -> None:
                 grid_builder.configure_column('キャラクター名', minWidth=150)
             if '特性' in display_df.columns:
                 grid_builder.configure_column('特性', minWidth=300, wrapText=True, autoHeight=True)
-            for col_name in ['ランク', '範囲', 'KB', 'No.', 'own', '速度']:
+            for col_name in ['ランク', '範囲', 'KB', 'No.', 'Own', '速度']:
                 if col_name in display_df.columns:
                     grid_builder.configure_column(col_name, initialWidth=100)
             grid_options = grid_builder.build()

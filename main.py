@@ -61,7 +61,7 @@ class NyankoApp:
     def _apply_cats_filters(self, df: pd.DataFrame) -> pd.DataFrame:
         """Cats のフィルター適用"""
         # Own フィルター
-        df = self.data_filter.apply_own_filter(df)
+        df = self.data_filter.apply_Own_filter(df)
 
         # キャラクター名検索
         search_text = st.sidebar.text_input("キャラクター名")

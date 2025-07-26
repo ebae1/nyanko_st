@@ -19,7 +19,7 @@ class GridOptions:
 
 @dataclass
 class FilterState:
-    own_filter: bool
+    Own_filter: bool
     search_text: str
     selected_colors: List[str]
     selected_ranks: List[str]
