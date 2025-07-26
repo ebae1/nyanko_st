@@ -4,8 +4,8 @@ from typing import List, Dict
 
 @dataclass
 class FileSettings:
-    CATS_FILE: str = './0.datafiles/org_catsdb.xlsx'
-    ENEMY_FILE: str = './0.datafiles/nyanko_enemy_db.xlsx'
+    CATS_FILE: str = './0.datafiles/org_catsdb.csv'
+    ENEMY_FILE: str = './0.datafiles/nyanko_enemy_db.csv'
 
 @dataclass
 class ColumnSettings:
