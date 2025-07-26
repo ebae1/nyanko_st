@@ -260,7 +260,7 @@ def main() -> None:
             st.title("Cats フィルター")
             filter_own_only = st.checkbox("Own")
             search_name = st.text_input("キャラクター名")
-            selected_colors = st.multiselect('対象属性', COLOR_TRAITS)
+            
             selected_ranks = st.multiselect('ランク', ['基本', 'EX', 'レア', '激レア', '超激レア', '伝説レア'])
             selected_ranges = st.multiselect('単体or範囲', ['単体', '範囲'], default=['単体', '範囲'])
             selected_effects = st.multiselect('特殊効果', [
@@ -270,7 +270,8 @@ def main() -> None:
                 '波動', '小波動', '烈波', '小烈波', '爆波',
                 'クリティカル', '渾身の一撃', 'ゾンビキラー', '悪魔シールド貫通', 'バリアブレイク',
                 '生き残る', '波動ストッパー'])
-
+            
+        selected_colors = st.segmented_control('対象属性', COLOR_TRAITS,selection_mode='multi')
         filtered_df = cats_df.copy()
         filtered_df = filter_checkbox_column(filtered_df, 'Own', filter_own_only)
         filtered_df = filter_text_search(filtered_df, 'キャラクター名', search_name)
