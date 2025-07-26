@@ -587,8 +587,21 @@ def main() -> None:
         # デバッグ表示（必要に応じてコメントアウトしてください）
         st.write(f"selected_rows type: {type(selected_rows)}")
         st.write(f"selected_rows content: {selected_rows}")
-
-        if isinstance(selected_rows, list) and len(selected_rows) > 0:
+        
+        if isinstance(selected_rows, pd.DataFrame):
+            if not selected_rows.empty:
+                selected_series = selected_rows.iloc[0]
+            else:
+                selected_series = None
+        elif isinstance(selected_rows, list):
+            if len(selected_rows) > 0:
+                selected_series = pd.Series(selected_rows[0])
+            else:
+                selected_series = None
+        else:
+            selected_series = None
+        
+        if selected_series is not None:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
             character_name = selected_series.get('キャラクター名', '')
             st.subheader(f"📊 {character_name} のステータス")
