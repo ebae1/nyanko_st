@@ -585,8 +585,8 @@ def main() -> None:
         selected_rows = grid_response.get('selected_rows', [])
 
         # デバッグ表示（必要に応じてコメントアウトしてください）
-        # st.write(f"selected_rows type: {type(selected_rows)}")
-        # st.write(f"selected_rows content: {selected_rows}")
+        st.write(f"selected_rows type: {type(selected_rows)}")
+        st.write(f"selected_rows content: {selected_rows}")
 
         if isinstance(selected_rows, list) and len(selected_rows) > 0:
             selected_series = pd.DataFrame(selected_rows).iloc[0]
