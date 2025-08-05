@@ -182,16 +182,22 @@ def draw_comparison_bar_chart(
     
     #値ラベルを項目名の左側へ追加
     value_labels = alt.Chart(df_chart).mark_text(
-        align='right', baseline='middle', dx=-5
+        align='right', 
+        baseline='middle', 
+        dx=-5,
+        color='black',
     ).encode(
         x=alt.value(0), #x軸の左端に固定
         y=alt.Y('項目:N', sort=sort_order, title=None),
         text=alt.Text('値:Q')
     )
     
-    chart = (bar_background + bar_foreground + value_labels).properties(
-        height=alt.Step(30)
-    ).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
+    chart = (bar_background + bar_foreground + value_labels
+        ).properties(height=alt.Step(30)
+        ).configure_axisY(offset=50
+        ).configure_axis(grid=False
+        ).configure_view(strokeWidth=0
+        ).configure_legend(disable=True)
     st.altair_chart(chart, use_container_width=True)
 
 def get_max_min_of_numeric_columns(
