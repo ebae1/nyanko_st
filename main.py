@@ -182,9 +182,9 @@ def draw_comparison_bar_chart(
     
     #値ラベルを項目名の左側へ追加
     value_labels = alt.Chart(df_chart).mark_text(
-        align='right', 
+        align='left', 
         baseline='middle', 
-        dx=-5,
+        dx=5,
         color='black',
     ).encode(
         x=alt.value(0), #x軸の左端に固定
