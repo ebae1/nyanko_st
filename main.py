@@ -21,14 +21,14 @@ NUMERIC_COLUMNS_ENEMY: List[str] = [
 ]
 
 DISPLAY_COLUMNS_CATS: List[str] = [
-    'Own', 'No.', 'ランク', 'キャラクター名', 'コスト', 
-    '射程', '攻撃力', 'DPS',
-    '体力' '特性'
+    'Own', 'No.', 'ランク', 'キャラクター名', 'コスト', '再生産F',
+    '速度', '範囲', '射程', '発生F', '攻撃力', '頻度F', 'DPS',
+    '体力', 'KB', '特性'
 ]
 
 ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
-    '属性', '射程', 'キャラクター名', '範囲', 'DPS', '攻撃力',
-    '頻度F', '体力','お金', '特性',
+    '属性', '射程', 'キャラクター名', '速度', '範囲', 'DPS', '攻撃力',
+    '頻度F', '攻発F', '体力', 'KB', 'お金', '特性', 'No.',
 ]
 
 RATIO_COLUMN_PAIRS: List[Tuple[str, str, Optional[str]]] = [
