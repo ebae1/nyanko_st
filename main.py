@@ -189,7 +189,7 @@ def draw_comparison_bar_chart(
         text=alt.Text('値:Q')
     )
     
-    chart = (bar_background + bar_foreground).properties(
+    chart = (bar_background + bar_foreground + value_labels).properties(
         height=alt.Step(30)
     ).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
     st.altair_chart(chart, use_container_width=True)
