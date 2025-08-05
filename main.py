@@ -185,7 +185,7 @@ def draw_comparison_bar_chart(
         align='left', 
         baseline='middle', 
         dx=5,
-        color='black',
+        color='white',
     ).encode(
         x=alt.value(0), #x軸の左端に固定
         y=alt.Y('項目:N', sort=sort_order, title=None),
