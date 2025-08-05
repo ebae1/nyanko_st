@@ -218,6 +218,8 @@ def main() -> None:
     cats_data = load_cats_data()
     enemy_data = load_enemy_data()
 
+    default_display_columns = [ 'キャラクター名', 'コスト', '射程', 'DPS', '体力', 'DPS/コスト', '体力/コスト' ]
+    
     numeric_columns_cats_extended = NUMERIC_COLUMNS_CATS.copy()
     display_columns_cats_extended = DISPLAY_COLUMNS_CATS.copy()
 
@@ -244,6 +246,14 @@ def main() -> None:
         with st.sidebar:
             st.title("Cats フィルター")
             filter_own_only = st.checkbox("Own")
+            
+            all_possible_columns = [col for col in cats_data.columns if col in DISPLAY_COLUMNS_CATS or col in ratio_columns]
+            selected_display_columns = st.multiselect(
+                label='表示項目を選択',
+                options=all_possible_columns,
+                default=default_display_columns
+            )
+            
             search_character_name = st.text_input("キャラクター名")
             selected_ranks = st.multiselect(
                 'ランク',
@@ -299,7 +309,7 @@ def main() -> None:
             st.warning("この条件に一致するキャラクターはいません。")
             return
         max_vals, min_vals = get_max_min_of_numeric_columns(filtered_cats_df, numeric_columns_cats_extended)
-        visible_columns = [col for col in display_columns_cats_extended if col in filtered_cats_df.columns]
+        visible_columns = [col for col in selected_display_columns if col in filtered_cats_df.columns]
         display_df = filtered_cats_df[visible_columns]
         grid_builder = GridOptionsBuilder.from_dataframe(display_df)
         grid_builder.configure_default_column(suppressMenu=True)
