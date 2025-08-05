@@ -113,7 +113,7 @@ def filter_rows_by_multiple_flags(
             mask &= df[flag_column]
     return df[mask]
 
-# === 可視化関数 ===
+# === グラフ化関数 ===
 
 def draw_comparison_bar_chart(
     selected_row: pd.Series,
@@ -179,6 +179,16 @@ def draw_comparison_bar_chart(
             alt.Tooltip('最小値:Q', format=','),
         ],
     ).transform_calculate(正規化値='100')
+    
+    #値ラベルを項目名の左側へ追加
+    value_labels = alt.Chart(df_chart).mark_text(
+        align='right', baseline='middle', dx=-5
+    ).encode(
+        x=alt.value(0), #x軸の左端に固定
+        y=alt.Y('項目:N', sort=sort_order, title=None),
+        text=alt.Text('値:Q')
+    )
+    
     chart = (bar_background + bar_foreground).properties(
         height=alt.Step(30)
     ).configure_axis(grid=False).configure_view(strokeWidth=0).configure_legend(disable=True)
