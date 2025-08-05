@@ -4,8 +4,7 @@ import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from typing import List, Dict, Tuple, Optional
 
-# 前処理モジュールをインポート
-from modules.preprocessing import preprocess_cats_df, preprocess_enemy_df
+from modules.preprocessing import preprocess_cats_df, preprocess_enemy_df, COLOR_TRAITS
 
 # === 定数定義 ===
 
@@ -27,11 +26,6 @@ DISPLAY_COLUMNS_CATS: List[str] = [
     '体力', 'KB', '特性'
 ]
 
-COLOR_TRAITS: List[str] = [
-    '赤', '浮', '黒', 'メタル', '天使', 'エイリアン',
-    'ゾンビ', '古代種', '悪魔', '白'
-]
-
 ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
     '属性', '射程', 'キャラクター名', '速度', '範囲', 'DPS', '攻撃力',
     '頻度F', '攻発F', '体力', 'KB', 'お金', '特性', 'No.',
@@ -40,10 +34,8 @@ ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
 RATIO_COLUMN_PAIRS: List[Tuple[str, str, Optional[str]]] = [
     ('DPS', 'コスト', None),
     ('体力', 'コスト', None),
-    # 追加は自由に
+    # 追加可
 ]
-
-# ===　比率列などの補助関数は preprocessing.py へ ===
 
 # === データ読み込み関数 ===
 
@@ -213,12 +205,11 @@ def main() -> None:
     numeric_columns_cats_extended = NUMERIC_COLUMNS_CATS.copy()
     display_columns_cats_extended = DISPLAY_COLUMNS_CATS.copy()
 
-    # 比率列名はRATIO_COLUMN_PAIRSから自動抽出
+    # 比率列名の追加
     ratio_columns = []
     for numerator, denominator, new_col in RATIO_COLUMN_PAIRS:
         col_name = new_col if new_col is not None else f"{numerator}/{denominator}"
         ratio_columns.append(col_name)
-    # 数値カラム拡張
     for col in ratio_columns:
         if col not in numeric_columns_cats_extended:
             numeric_columns_cats_extended.append(col)
@@ -279,7 +270,6 @@ def main() -> None:
             filtered_cats_df = filtered_cats_df[filtered_cats_df['範囲'].isin(selected_ranges)]
         filtered_cats_df = filter_rows_by_multiple_flags(filtered_cats_df, selected_effects)
         filtered_cats_df = filter_rows_by_multiple_flags(filtered_cats_df, selected_abilities)
-
         numeric_slider_columns = [
             'コスト', '再生産F', '速度', '射程', '発生F', '攻撃力', '頻度F', 'DPS', '体力', 'KB',
         ]
@@ -288,7 +278,6 @@ def main() -> None:
                 numeric_slider_columns.append(col)
         for numeric_col in numeric_slider_columns:
             filtered_cats_df = filter_rows_by_numeric_range(filtered_cats_df, numeric_col)
-
         st.header("Cats DB")
         if filtered_cats_df.empty:
             st.warning("この条件に一致するキャラクターはいません。")
