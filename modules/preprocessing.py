@@ -67,35 +67,35 @@ def add_multiple_ratio_columns(
         df = add_ratio_column(df, numerator, denominator, new_col)
     return df
 
-def add_statistical_columns(
-    df: pd.DataFrame,
-    target_columns: List[str]
-) -> pd.DataFrame:
-    """
-    指定カラムについて平均・最大・最小・中央値・標準偏差カラムを追加
-    （各々同じ値が全行に入る/個別の標準偏差なども可）
-    """
-    # for col in target_columns:
-    #     if col in df.columns:
-    #         df[f'{col}_mean'] = df[col].mean()
-    #         df[f'{col}_max'] = df[col].max()
-    #         df[f'{col}_min'] = df[col].min()
-    #         df[f'{col}_median'] = df[col].median()
-    #         df[f'{col}_std'] = df[col].std()
-    # return df
+# def add_statistical_columns(
+#     df: pd.DataFrame,
+#     target_columns: List[str]
+# ) -> pd.DataFrame:
+#     """
+#     指定カラムについて平均・最大・最小・中央値・標準偏差カラムを追加
+#     （各々同じ値が全行に入る/個別の標準偏差なども可）
+#     """
+#     # for col in target_columns:
+#     #     if col in df.columns:
+#     #         df[f'{col}_mean'] = df[col].mean()
+#     #         df[f'{col}_max'] = df[col].max()
+#     #         df[f'{col}_min'] = df[col].min()
+#     #         df[f'{col}_median'] = df[col].median()
+#     #         df[f'{col}_std'] = df[col].std()
+#     # return df
 
-def add_normalized_columns(df: pd.DataFrame, target_columns: List[str]) -> pd.DataFrame:
-    """
-    指定カラム群について、min-maxによる[0,1]の正規化カラムを追加
-    """
-    for col in target_columns:
-        if col in df.columns:
-            min_val, max_val = df[col].min(), df[col].max()
-            if min_val != max_val:
-                df[f'{col}_norm'] = (df[col] - min_val) / (max_val - min_val)
-            else:
-                df[f'{col}_norm'] = 0
-    return df
+# def add_normalized_columns(df: pd.DataFrame, target_columns: List[str]) -> pd.DataFrame:
+#     """
+#     指定カラム群について、min-maxによる[0,1]の正規化カラムを追加
+#     """
+#     for col in target_columns:
+#         if col in df.columns:
+#             min_val, max_val = df[col].min(), df[col].max()
+#             if min_val != max_val:
+#                 df[f'{col}_norm'] = (df[col] - min_val) / (max_val - min_val)
+#             else:
+#                 df[f'{col}_norm'] = 0
+#     return df
 
 def preprocess_cats_df(
     df: pd.DataFrame,
@@ -112,8 +112,8 @@ def preprocess_cats_df(
     # 特性カラム（存在しない場合は比率・統計だけ）
     if '特性' not in df.columns or df['特性'].isnull().all():
         df = add_multiple_ratio_columns(df, ratio_pairs)
-        df = add_statistical_columns(df, numeric_columns)
-        df = add_normalized_columns(df, numeric_columns)
+        # df = add_statistical_columns(df, numeric_columns)
+        # df = add_normalized_columns(df, numeric_columns)
         return df
     # 特性毎のフラグ列
     traits_lines = df['特性'].str.split('\n').explode().str.strip()
@@ -135,8 +135,8 @@ def preprocess_cats_df(
             df[trait] = False
     # 比率・統計・正規化
     df = add_multiple_ratio_columns(df, ratio_pairs)
-    df = add_statistical_columns(df, numeric_columns)
-    df = add_normalized_columns(df, numeric_columns)
+    # df = add_statistical_columns(df, numeric_columns)
+    # df = add_normalized_columns(df, numeric_columns)
     return df
 
 def preprocess_enemy_df(
@@ -149,6 +149,6 @@ def preprocess_enemy_df(
     for col in numeric_columns:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-    df = add_statistical_columns(df, numeric_columns)
-    df = add_normalized_columns(df, numeric_columns)
+    # df = add_statistical_columns(df, numeric_columns)
+    # df = add_normalized_columns(df, numeric_columns)
     return df
