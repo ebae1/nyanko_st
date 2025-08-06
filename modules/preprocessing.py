@@ -75,14 +75,14 @@ def add_statistical_columns(
     指定カラムについて平均・最大・最小・中央値・標準偏差カラムを追加
     （各々同じ値が全行に入る/個別の標準偏差なども可）
     """
-    for col in target_columns:
-        if col in df.columns:
-            df[f'{col}_mean'] = df[col].mean()
-            df[f'{col}_max'] = df[col].max()
-            df[f'{col}_min'] = df[col].min()
-            df[f'{col}_median'] = df[col].median()
-            df[f'{col}_std'] = df[col].std()
-    return df
+    # for col in target_columns:
+    #     if col in df.columns:
+    #         df[f'{col}_mean'] = df[col].mean()
+    #         df[f'{col}_max'] = df[col].max()
+    #         df[f'{col}_min'] = df[col].min()
+    #         df[f'{col}_median'] = df[col].median()
+    #         df[f'{col}_std'] = df[col].std()
+    # return df
 
 def add_normalized_columns(df: pd.DataFrame, target_columns: List[str]) -> pd.DataFrame:
     """
