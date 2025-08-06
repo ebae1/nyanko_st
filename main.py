@@ -26,10 +26,16 @@ DISPLAY_COLUMNS_CATS: List[str] = [
     '体力', 'KB', '特性'
 ]
 
+default_display_columns = [ 'キャラクター名', 'コスト', '射程', 'DPS', '体力', 'DPS/コスト', '体力/コスト' ]
+
+
 ENEMY_COLUMNS_DISPLAY_ORDER: List[str] = [
     '属性', '射程', 'キャラクター名', '速度', '範囲', 'DPS', '攻撃力',
     '頻度F', '攻発F', '体力', 'KB', 'お金', '特性', 'No.',
 ]
+
+default_enemy_display_columns = ['キャラクター名', '射程', 'DPS', '攻撃力', '体力', 'お金']
+
 
 RATIO_COLUMN_PAIRS: List[Tuple[str, str, Optional[str]]] = [
     ('DPS', 'コスト', None),
@@ -218,7 +224,6 @@ def main() -> None:
     cats_data = load_cats_data()
     enemy_data = load_enemy_data()
 
-    default_display_columns = [ 'キャラクター名', 'コスト', '射程', 'DPS', '体力', 'DPS/コスト', '体力/コスト' ]
     
     numeric_columns_cats_extended = NUMERIC_COLUMNS_CATS.copy()
     display_columns_cats_extended = DISPLAY_COLUMNS_CATS.copy()
@@ -354,6 +359,14 @@ def main() -> None:
     elif selected_tab == "Enemy":
         with st.sidebar:
             st.title("Enemy フィルター")
+            
+            all_enemy_columns = [col for col in enemy_data.columns if col in ENEMY_COLUMNS_DISPLAY_ORDER]
+            selected_enemy_display_columns = st.multiselect(
+                label='表示項目を選択',
+                options=all_enemy_columns,
+                default=default_enemy_display_columns 
+            )
+            
             search_enemy_name = st.text_input("敵キャラクター名")
         filtered_enemy_df = enemy_data.copy()
         filtered_enemy_df = filter_rows_by_text_search(filtered_enemy_df, 'キャラクター名', search_enemy_name)
@@ -361,8 +374,10 @@ def main() -> None:
         if filtered_enemy_df.empty:
             st.warning("この条件に一致する敵キャラクターはいません。")
             return
+        
+        visible_enemy_columns = [col for col in selected_enemy_display_columns if col in filtered_enemy_df.columns]
+        
         max_vals, min_vals = get_max_min_of_numeric_columns(filtered_enemy_df, NUMERIC_COLUMNS_ENEMY)
-        visible_enemy_columns = [col for col in ENEMY_COLUMNS_DISPLAY_ORDER if col in filtered_enemy_df.columns]
         filtered_enemy_df = filtered_enemy_df[visible_enemy_columns]
         grid_builder = GridOptionsBuilder.from_dataframe(filtered_enemy_df)
         grid_builder.configure_default_column(suppressMenu=True, filter=False)
