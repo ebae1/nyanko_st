@@ -4,7 +4,7 @@ import z3
 
 U32_MASK = 0xffffffff
 
-SEQUENCE = [2224457259, 2991770626]
+SEQUENCE = [1380764099, 2907196537]
 
 # テーブル定義
 TABLES = [
@@ -121,23 +121,24 @@ def select_table_n(rarity: int) -> tuple[int, int]:
     raise ValueError('Rarity out of range')
 
 
-def calc_alt_slot(seed,count,original_slot):
+def calc_alt_slot(seed, count, original_slot):
     """
     代替スロット計算。slotが重複する場合に使う。
     """
-    alt_slot = xorshift32_u32(seed) % (count-1)
+    alt_slot = xorshift32_u32(seed) % (count - 1)
     if original_slot <= alt_slot:
         alt_slot += 1
     return alt_slot
 
-def rarity_and_slot(initial_seed, rolls) -> tuple[list[dict],list[dict]]:
+
+def rarity_and_slot(initial_seed, rolls) -> tuple[list[dict], list[dict]]:
     """
     指定回数のロールに対して、レアリティ・テーブル選択・スロット選択を行い、
     トラックA、トラックBのそれぞれに結果を記録して返す。
     """
     track_a: List[dict] = []
     track_b: List[dict] = []
-    
+
     seed = initial_seed
     for i in range(rolls):
         rarity = seed % 10000
@@ -149,7 +150,7 @@ def rarity_and_slot(initial_seed, rolls) -> tuple[list[dict],list[dict]]:
         current_track = track_a if i % 2 == 0 else track_b
         track_label = 'A' if current_track is track_a else 'B'
         number = (i + 2) // 2
-        
+
         entry = {
             'track': track_label,
             'seed1': seed,
@@ -162,16 +163,16 @@ def rarity_and_slot(initial_seed, rolls) -> tuple[list[dict],list[dict]]:
         }
         # 直前のアイテムを取得（必要に応じて）
         prev_item = current_track[-1]['item'] if len(current_track) >= 1 else None
-        
+
         # 重複判定と代替アイテム設定
         if len(current_track) >= 1 and table_idx == DUP_TABLE_INDEX and item == prev_item:
             alt_slot = calc_alt_slot(next_seed, count, slot)
             alt_item = TABLES[table_idx][str(alt_slot)]
-            entry.update({'alt_slot':alt_slot, 'alt_item':alt_item})
-            
+            entry.update({'alt_slot': alt_slot, 'alt_item': alt_item})
+
         current_track.append(entry)
         seed = next_seed
-        
+
     return track_a, track_b
 
 
@@ -186,21 +187,20 @@ def dup_stream(table_n, slot, seed2) -> tuple[int, str]:
 
     return alt_slot, alt_item
 
+
 if __name__ == '__main__':
     initial_seed = find_seed(SEQUENCE)
     if initial_seed is None:
         exit(1)
-        
+
     # 初期シードから1ステップ進めた値を取得
-    next_seed = xorshift32_u32(initial_seed)    
+    next_seed = xorshift32_u32(initial_seed)
     track_A_result, track_B_result = rarity_and_slot(next_seed, rolls=400)
 
     stream_from_track_A = []
     current_track = 'A'
     prev_track = 'A'
     tr_prev_item = None
-        
-                
 
     #alt_itemが発生した後は、もう片方のtrackへジャンプする
     for i in range(len(track_A_result)):
@@ -213,49 +213,57 @@ if __name__ == '__main__':
             prev_track = 'A'
             num = track_A_result[i]['No.']
             item = track_A_result[i]['item']
-            stream_from_track_A.append({'No':num, 'item':item})
+            stream_from_track_A.append({'No': num, 'item': item})
 
             #トラック移動後の被り処理
-            if (len(stream_from_track_A) >= 2 and 'B' in stream_from_track_A[-2][0]
+            #トラック移動したか
+            if len(stream_from_track_A) >= 2 and 'B' in stream_from_track_A[-2]['No']:
 
-                if (len(stream_from_track_A) >= 2 and 'B' in stream_from_track_A[-2][0] and
-                        track_A_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item):
+                if track_A_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item:
 
                     tr_alt_slot, tr_alt_item = dup_stream(track_A_result[i]['table_n'],
-                                                            track_A_result[i]['slot'],
-                                                            track_A_result[i]['seed2'])
-                    stream_from_track_A[-1].update({'tr_alt_slot':tr_alt_slot, 'tr_alt_item':tr_alt_item})
+                                                          track_A_result[i]['slot'],
+                                                          track_A_result[i]['seed2'])
+                    stream_from_track_A[-1].update({
+                        'tr_alt_slot': tr_alt_slot,
+                        'tr_alt_item': tr_alt_item
+                    })
                     current_track = 'B'  #トラック移動
                     tr_prev_item = tr_alt_item
 
-                elif 'alt_item' in track_A_result[i]:
-                    alt_item = track_A_result[i]['alt_item']
-                    stream_from_track_A[-1].update({'alt_item':alt_item})
-                    current_track = 'B'
-                    tr_prev_item = alt_item
-                
+            elif 'alt_item' in track_A_result[i]:
+                alt_item = track_A_result[i]['alt_item']
+                stream_from_track_A[-1].update({'alt_item': alt_item})
+                current_track = 'B'  #トラック移動
+                tr_prev_item = alt_item
+
             print(stream_from_track_A[-1])
 
-        else: # current_track == 'B'
+        else:  # current_track == 'B'
             prev_track = 'B'
             num = track_B_result[i]['No.']
             item = track_B_result[i]['item']
-            stream_from_track_A.append({'num':num, 'item':item})
+            stream_from_track_A.append({'No': num, 'item': item})
 
             #トラック移動後の被り処理
-            if (len(stream_from_track_A) >= 2 and 'A' in stream_from_track_A[-2][0] and
-                    track_B_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item):
+            #トラック移動したか
+            if len(stream_from_track_A) >= 2 and 'A' in stream_from_track_A[-2]['No']:
 
-                tr_alt_slot, tr_alt_item = dup_stream(track_B_result[i]['table_n'],
-                                                        track_B_result[i]['slot'],
-                                                        track_B_result[i]['seed2'])
-                stream_from_track_A[-1].append({'tr_alt_slot':tr_alt_slot, 'tr_alt_item':tr_alt_item})
-                current_track = 'A'  #トラック移動
-                tr_prev_item = tr_alt_item
+                if track_B_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item:
+
+                    tr_alt_slot, tr_alt_item = dup_stream(track_B_result[i]['table_n'],
+                                                          track_B_result[i]['slot'],
+                                                          track_B_result[i]['seed2'])
+                    stream_from_track_A[-1].update({
+                        'tr_alt_slot': tr_alt_slot,
+                        'tr_alt_item': tr_alt_item
+                    })
+                    current_track = 'A'  #トラック移動
+                    tr_prev_item = tr_alt_item
 
             elif 'alt_item' in track_B_result[i]:
                 alt_item = track_B_result[i]['alt_item']
-                stream_from_track_A[-1].update({'alt_item':alt_item})
+                stream_from_track_A[-1].update({'alt_item': alt_item})
                 current_track = 'A'  #トラック移動
                 tr_prev_item = alt_item
 
@@ -270,4 +278,5 @@ for item in stream_from_track_A:
         result = item['alt_item']
     else:
         result = item['item']
-    print(gacha_result[-1])
+    gacha_result.append(result)
+    print(result)
