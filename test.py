@@ -1,7 +1,10 @@
-list = [{'0':'a','b':2},{'c':3,'d':4}]
-val = 0
-print(list[0][f'{val}'])
+lst = [ ['20A', 'ニャンピューター', [17, 'XP30000']], ['21B', 'ちびネコノトリ']]
+v = lst[0][-1][-1]
+i = lst[1][-1]
+s = lst[0][-1]
+print(v)
+print(i)
+print(s)
 
+print(len(lst[0][-1]))
 
-li = [[0,1],[1],[2]]
-print(len(li[0]))
