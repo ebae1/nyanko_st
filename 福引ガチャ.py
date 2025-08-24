@@ -140,7 +140,7 @@ def rarity_and_slot(initial_seed, rolls) -> tuple[list[dict], list[dict]]:
     track_b: List[dict] = []
 
     seed = initial_seed
-    for i in range(rolls):
+    for i in range(rolls * 2):
         rarity = seed % 10000
         next_seed = xorshift32_u32(seed)
         table_idx, count = select_table_n(rarity)
@@ -188,95 +188,96 @@ def dup_stream(table_n, slot, seed2) -> tuple[int, str]:
     return alt_slot, alt_item
 
 
+def stream(track):
+
+    # 初期シードから1ステップ進めた値を取得
+    next_seed = xorshift32_u32(initial_seed)
+    track_A_result, track_B_result = rarity_and_slot(next_seed, rolls=100)
+
+    stream_from_track_A = []
+    stream_from_track_B = []
+
+    current_track = track
+    prev_track = track
+    tr_prev_item = None
+
+    stream = stream_from_track_A if current_track == 'A' else stream_from_track_B
+
+    #alt_itemが発生した後は、もう片方のtrackへジャンプする
+    for i in range(len(track_A_result)):
+
+        # Bから移動してきた場合、1回スキップ
+        if current_track == 'A' and prev_track == 'B':
+            prev_track = 'A'
+            continue
+
+        track_result = track_A_result if current_track == 'A' else track_B_result
+        alt_track = 'B' if current_track == 'A' else 'A'
+
+        prev_track = current_track
+        num = track_result[i]['No.']
+        item = track_result[i]['item']
+        stream.append({'No': num, 'item': item})
+
+        #トラック移動後の被り処理
+        #トラック移動したか
+        if len(stream) >= 2 and alt_track in stream[-2]['No']:
+
+            if track_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item:
+
+                tr_alt_slot, tr_alt_item = dup_stream(track_result[i]['table_n'],
+                                                      track_result[i]['slot'],
+                                                      track_result[i]['seed2'])
+                stream[-1].update({'tr_alt_slot': tr_alt_slot, 'tr_alt_item': tr_alt_item})
+                current_track = alt_track  #トラック移動
+                tr_prev_item = tr_alt_item
+
+        elif 'alt_item' in track_result[i]:
+            alt_item = track_result[i]['alt_item']
+            stream[-1].update({'alt_item': alt_item})
+            current_track = alt_track  #トラック移動
+            tr_prev_item = alt_item
+
+        print(stream[-1])
+
+    return stream
+
+
 if __name__ == '__main__':
     initial_seed = find_seed(SEQUENCE)
     if initial_seed is None:
         exit(1)
 
-    # 初期シードから1ステップ進めた値を取得
-    next_seed = xorshift32_u32(initial_seed)
-    track_A_result, track_B_result = rarity_and_slot(next_seed, rolls=400)
+    stream_from_track_A = stream('A')
+    print()
+    stream_from_track_B = stream('B')
 
-    stream_from_track_A = []
-    current_track = 'A'
-    prev_track = 'A'
-    tr_prev_item = None
-
-    #alt_itemが発生した後は、もう片方のtrackへジャンプする
-    for i in range(len(track_A_result)):
-        if current_track == 'A':
-            # Bから移動してきた場合、1回スキップ
-            if prev_track == 'B':
-                prev_track = 'A'
-                continue
-
-            prev_track = 'A'
-            num = track_A_result[i]['No.']
-            item = track_A_result[i]['item']
-            stream_from_track_A.append({'No': num, 'item': item})
-
-            #トラック移動後の被り処理
-            #トラック移動したか
-            if len(stream_from_track_A) >= 2 and 'B' in stream_from_track_A[-2]['No']:
-
-                if track_A_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item:
-
-                    tr_alt_slot, tr_alt_item = dup_stream(track_A_result[i]['table_n'],
-                                                          track_A_result[i]['slot'],
-                                                          track_A_result[i]['seed2'])
-                    stream_from_track_A[-1].update({
-                        'tr_alt_slot': tr_alt_slot,
-                        'tr_alt_item': tr_alt_item
-                    })
-                    current_track = 'B'  #トラック移動
-                    tr_prev_item = tr_alt_item
-
-            elif 'alt_item' in track_A_result[i]:
-                alt_item = track_A_result[i]['alt_item']
-                stream_from_track_A[-1].update({'alt_item': alt_item})
-                current_track = 'B'  #トラック移動
-                tr_prev_item = alt_item
-
-            print(stream_from_track_A[-1])
-
-        else:  # current_track == 'B'
-            prev_track = 'B'
-            num = track_B_result[i]['No.']
-            item = track_B_result[i]['item']
-            stream_from_track_A.append({'No': num, 'item': item})
-
-            #トラック移動後の被り処理
-            #トラック移動したか
-            if len(stream_from_track_A) >= 2 and 'A' in stream_from_track_A[-2]['No']:
-
-                if track_B_result[i]['table_n'] == DUP_TABLE_INDEX and item == tr_prev_item:
-
-                    tr_alt_slot, tr_alt_item = dup_stream(track_B_result[i]['table_n'],
-                                                          track_B_result[i]['slot'],
-                                                          track_B_result[i]['seed2'])
-                    stream_from_track_A[-1].update({
-                        'tr_alt_slot': tr_alt_slot,
-                        'tr_alt_item': tr_alt_item
-                    })
-                    current_track = 'A'  #トラック移動
-                    tr_prev_item = tr_alt_item
-
-            elif 'alt_item' in track_B_result[i]:
-                alt_item = track_B_result[i]['alt_item']
-                stream_from_track_A[-1].update({'alt_item': alt_item})
-                current_track = 'A'  #トラック移動
-                tr_prev_item = alt_item
-
-            print(stream_from_track_A[-1])
+print()
+# print(stream_from_track_A)
 print()
 
-gacha_result = []
-for item in stream_from_track_A:
-    if 'tr_alt_item' in item:
-        result = item['tr_alt_item']
-    elif 'alt_item' in item:
-        result = item['alt_item']
-    else:
-        result = item['item']
-    gacha_result.append(result)
-    print(result)
+
+def gacha_result(track):
+    stream = stream_from_track_A if track == 'A' else stream_from_track_B
+    gacha_result = []
+    for item in stream:
+        if 'tr_alt_item' in item:
+            result = item['tr_alt_item']
+        elif 'alt_item' in item:
+            result = item['alt_item']
+        elif 'item' in item:
+            result = item['item']
+        else:
+            result = None
+        gacha_result.append(result)
+        print(result)
+    return gacha_result
+
+
+print('-------A-------')
+gacha_result('A')
+
+print()
+
+print('-------B-------')
+gacha_result('B')
