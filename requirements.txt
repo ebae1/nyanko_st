@@ -4,3 +4,5 @@ streamlit==1.46.1
 altair==5.5.0
 openpyxl==3.1.5
 z3-solver==4.15.3.0
+numba==0.61.2
+numpy==2.2.4
